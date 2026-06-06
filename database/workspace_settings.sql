@@ -1,0 +1,25 @@
+USE lms_project;
+
+CREATE TABLE IF NOT EXISTS admin_workspace_settings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL UNIQUE,
+  workspace_name VARCHAR(255) NOT NULL DEFAULT '',
+  public_url VARCHAR(255) NOT NULL DEFAULT '',
+  default_language VARCHAR(10) NOT NULL DEFAULT 'en',
+  timezone VARCHAR(50) NOT NULL DEFAULT 'utc',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS admin_integrations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  provider VARCHAR(50) NOT NULL,
+  connected TINYINT(1) NOT NULL DEFAULT 0,
+  config_json JSON NULL,
+  connected_at TIMESTAMP NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_admin_provider (admin_id, provider),
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+);

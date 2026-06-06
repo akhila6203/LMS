@@ -1,0 +1,17 @@
+node_modules/
+client-sphere-admin-main/node_modules/
+backend/node_modules/
+
+.env
+client-sphere-admin-main/.env
+backend/.env
+
+dist/
+build/
+
+.vscode/
+
+*.log
+
+backend/uploads/*
+!backend/uploads/.gitkeep
