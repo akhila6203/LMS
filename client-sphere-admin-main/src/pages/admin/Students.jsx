@@ -33,11 +33,34 @@ import {
   Download,
   UserPlus,
   FileSpreadsheet,
+  School,
+  GraduationCap,
+  ChevronDown,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { studentService } from "@/services/studentService";
 import BulkImportModal from "./BulkImportModal";
 import AddStudentModal from "./AddStudentModal";
+import EditStudentModal from "./EditStudentModal";
 import InviteStudentModal from "./InviteStudentModal";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CLASS_OPTIONS } from "@/lib/catalog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -56,6 +79,9 @@ export default function Students() {
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [schoolFilter, setSchoolFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [schoolOptions, setSchoolOptions] = useState([]);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [pagination, setPagination] = useState({
@@ -72,17 +98,31 @@ export default function Students() {
   const [showImport, setShowImport] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [editStudent, setEditStudent] = useState(null);
+  const [deleteStudent, setDeleteStudent] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await studentService.getAll({ page, limit, search });
+      const res = await studentService.getAll({
+        page,
+        limit,
+        search,
+        school: schoolFilter,
+        classLevel: classFilter,
+      });
       setStudents(res.data.students || []);
       setPagination(res.data.pagination || { page, limit, total: 0, totalPages: 0 });
       setStats(
         res.data.stats || { total: 0, active: 0, avgCompletion: 0 }
       );
+      const apiSchools = res.data.filterOptions?.schools || [];
+      setSchoolOptions((prev) => {
+        const merged = new Set([...apiSchools, ...prev]);
+        return [...merged].sort((a, b) => a.localeCompare(b));
+      });
     } catch (err) {
       console.error(err);
       setStudents([]);
@@ -91,7 +131,7 @@ export default function Students() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search]);
+  }, [page, limit, search, schoolFilter, classFilter]);
 
   useEffect(() => {
     loadStudents();
@@ -107,15 +147,15 @@ export default function Students() {
 
   const handleExport = () => {
     const csv = [
-      ["Name", "Email", "Enrolled", "Completed", "Progress", "Joined", "Status"],
+      ["Name", "Email", "School", "Class", "Completed", "Progress", "Joined"],
       ...students.map((s) => [
         s.name,
         s.email,
-        s.enrolled,
+        s.school || "",
+        s.classLevel || "",
         s.completed,
         s.progress,
         s.joined,
-        s.status,
       ]),
     ];
 
@@ -144,8 +184,23 @@ export default function Students() {
     }
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteStudent) return;
+    setDeleting(true);
+    try {
+      await studentService.remove(deleteStudent.id);
+      toast.success("Student deleted");
+      setDeleteStudent(null);
+      loadStudents();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not delete student");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 px-3 py-3 sm:px-4 sm:py-4">
       <div className="flex justify-between items-start flex-wrap gap-4">
         <div>
           <p className="text-gray-500 text-sm">
@@ -205,15 +260,59 @@ export default function Students() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-            <div className="relative max-w-sm w-full">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search by name or email..."
-                className="pl-9"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
+          <div className="p-4 border-b flex flex-col lg:flex-row lg:items-center gap-3 justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 flex-1">
+              <div className="relative max-w-sm w-full">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name, email, school or class..."
+                  className="pl-9"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+              </div>
+
+              <Select
+                value={schoolFilter || "all"}
+                onValueChange={(v) => {
+                  setSchoolFilter(v === "all" ? "" : v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-[190px] h-9 border-dashed">
+                  <School className="w-4 h-4 mr-2 text-gray-500 shrink-0" />
+                  <SelectValue placeholder="School" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All schools</SelectItem>
+                  {schoolOptions.map((school) => (
+                    <SelectItem key={school} value={school}>
+                      {school}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={classFilter || "all"}
+                onValueChange={(v) => {
+                  setClassFilter(v === "all" ? "" : v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-[160px] h-9 border-dashed">
+                  <GraduationCap className="w-4 h-4 mr-2 text-gray-500 shrink-0" />
+                  <SelectValue placeholder="Class" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All classes</SelectItem>
+                  {CLASS_OPTIONS.map((cls) => (
+                    <SelectItem key={cls} value={cls}>
+                      {cls}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -243,8 +342,8 @@ export default function Students() {
             <p className="p-8 text-center text-gray-400">Loading students...</p>
           ) : students.length === 0 ? (
             <p className="p-8 text-center text-gray-400">
-              {search
-                ? "No students match your search."
+              {search || schoolFilter || classFilter
+                ? "No students match your filters."
                 : "No students yet. Students appear here when added manually or when they sign in with Google."}
             </p>
           ) : (
@@ -253,11 +352,13 @@ export default function Students() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Student</TableHead>
-                    <TableHead>Enrolled</TableHead>
+                    <TableHead>School</TableHead>
+                    <TableHead>Class</TableHead>
                     <TableHead>Completed</TableHead>
                     <TableHead>Progress</TableHead>
+                    <TableHead>Subjects</TableHead>
                     <TableHead>Joined</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
 
@@ -291,26 +392,83 @@ export default function Students() {
                         </div>
                       </TableCell>
 
-                      <TableCell>{s.enrolled}</TableCell>
+                      <TableCell>{s.school || "—"}</TableCell>
+                      <TableCell>{s.classLevel || "—"}</TableCell>
+
                       <TableCell>{s.completed}</TableCell>
 
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-[120px]">
                           <Progress value={s.progress} className="h-2" />
-                          <span className="text-xs">{s.progress}%</span>
+                          <span className="text-xs shrink-0">{s.progress}%</span>
                         </div>
+                      </TableCell>
+
+                      <TableCell>
+                        {(s.subjectProgress || []).length > 0 ? (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                              >
+                                {s.subjectProgress.length} subject
+                                {s.subjectProgress.length === 1 ? "" : "s"}
+                                <ChevronDown className="h-3 w-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" className="w-64 p-3">
+                              <p className="text-xs font-medium text-muted-foreground mb-2">
+                                Subject progress
+                              </p>
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {s.subjectProgress.map((sp) => (
+                                  <div key={sp.subject}>
+                                    <div className="flex items-center justify-between text-xs mb-1">
+                                      <span className="font-medium truncate pr-2">
+                                        {sp.subject}
+                                      </span>
+                                      <span className="text-muted-foreground shrink-0">
+                                        {sp.progress}%
+                                      </span>
+                                    </div>
+                                    <Progress value={sp.progress} className="h-1.5" />
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                      {sp.completed}/{sp.total} topics
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
 
                       <TableCell>{s.joined}</TableCell>
 
-                      <TableCell>
-                        <Badge
-                          variant={
-                            s.status === "Active" ? "default" : "secondary"
-                          }
-                        >
-                          {s.status}
-                        </Badge>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Edit student"
+                            onClick={() => setEditStudent(s)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            title="Delete student"
+                            onClick={() => setDeleteStudent(s)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -410,6 +568,40 @@ export default function Students() {
           onSuccess={refreshList}
         />
       )}
+
+      {editStudent && (
+        <EditStudentModal
+          student={editStudent}
+          onClose={() => setEditStudent(null)}
+          onSuccess={loadStudents}
+        />
+      )}
+
+      <AlertDialog open={!!deleteStudent} onOpenChange={(open) => !open && setDeleteStudent(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete student?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{" "}
+              <strong>{deleteStudent?.name || deleteStudent?.email}</strong> from the
+              system. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteConfirm();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

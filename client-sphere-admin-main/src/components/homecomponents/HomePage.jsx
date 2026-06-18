@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,14 +11,13 @@ import {
   Shield,
 } from "lucide-react";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { homeVideoService } from "@/services/homeVideoService";
 
 import { CourseCard } from "../../pages/user/CourseCard";
 import VideoPlayer from "../../pages/user/VideoPlayer";
-import PublicCategoryFilters from "./PublicCategoryFilters";
 import { usePublishedCourses } from "@/hooks/usePublishedCourses";
-import { usePublicCourseFilters } from "@/hooks/usePublicCourseFilters";
+import { getSessionUser } from "@/utils/authSession";
 
 import demo from "../../assets/videos/demo.mp4";
 import { PageWithFooter } from "@/components/layout/PageWithFooter";
@@ -31,17 +29,16 @@ const features = [
   { icon: Shield, title: "Lifetime access", desc: "Buy once, learn forever." },
 ];
 
+const HOME_PREVIEW_COUNT = 12;
+
 export default function HomePage() {
   const { courses, loading, error } = usePublishedCourses();
-  const { categories, activeCategory, filtered, selectCategory } =
-    usePublicCourseFilters(courses);
+  const sessionUser = getSessionUser();
+  const isLoggedIn = sessionUser && sessionUser.role !== "admin";
 
-  const [visibleCount, setVisibleCount] = useState(8);
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-  const isLoggedIn = user && user.role !== "admin";
-
-  const visibleCourses = filtered.slice(0, visibleCount);
-  const heroCourse = courses[0];
+  const visiblePool = courses;
+  const visibleCourses = visiblePool.slice(0, HOME_PREVIEW_COUNT);
+  const heroCourse = visiblePool[0] || courses[0];
 
   const [demoVideo, setDemoVideo] = useState(null);
 
@@ -109,8 +106,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="hidden lg:block">
-            <div className="rounded-2xl bg-card p-4 shadow-xl">
+          <div className="mt-8 lg:mt-0">
+            <div className="rounded-2xl bg-card p-3 sm:p-4 shadow-xl">
               <VideoPlayer
                   src={demoVideo?.video_url || demo}
                   controls
@@ -121,12 +118,12 @@ export default function HomePage() {
                   title={heroCourse?.title || "Course preview"}
                   subtitle={
                     heroCourse
-                      ? `${heroCourse.lessons || 0} lessons · ${heroCourse.hours || 0}h`
+                      ? `${heroCourse.topics ?? heroCourse.lessons ?? 0} topics · ${heroCourse.hours || 0}h`
                       : "Explore our catalog"
                   }
                 />
 
-              <div className="grid grid-cols-3 gap-3 mt-4">
+              <div className="hidden sm:grid grid-cols-3 gap-3 mt-4">
                   {courses.slice(1, 4).map((c) => (
                     <Link
                       key={c.id}
@@ -188,14 +185,11 @@ export default function HomePage() {
         </div>
 
         <div className="mt-6">
-          <PublicCategoryFilters
-            categories={categories}
-            activeCategory={activeCategory}
-            onCategoryChange={(cat) => {
-              selectCategory(cat);
-              setVisibleCount(8);
-            }}
-          />
+          {!loading && visiblePool.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {visiblePool.length} published lesson{visiblePool.length !== 1 ? "s" : ""} · topics shown on each card
+            </p>
+          )}
         </div>
 
         {loading && (
@@ -208,9 +202,9 @@ export default function HomePage() {
           </p>
         )}
 
-        {!loading && !error && filtered.length === 0 && (
+        {!loading && !error && visiblePool.length === 0 && (
           <p className="mt-8 text-center text-muted-foreground">
-            No published courses in this category yet.
+            No published courses yet.
           </p>
         )}
 
@@ -220,15 +214,14 @@ export default function HomePage() {
           ))}
         </div>
 
-        {visibleCount < filtered.length && (
+        {visiblePool.length > HOME_PREVIEW_COUNT && (
           <div className="mt-8 text-center">
             <Button
-              type="button"
+              asChild
               variant="outline"
               className="rounded-full px-8"
-              onClick={() => setVisibleCount((prev) => prev + 20)}
             >
-              More
+              <Link to="/homecourses">More</Link>
             </Button>
           </div>
         )}

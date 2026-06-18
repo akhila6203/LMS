@@ -1,37 +1,48 @@
-import { CATEGORIES } from "@/lib/catalog";
+const CLASS_NUMBER = (classLevel = "") => {
+  const match = String(classLevel).match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+};
 
-const PREDEFINED = CATEGORIES.filter((c) => c !== "All");
+/** Sort classes by number (Class 4 before Class 5), then alphabetically */
+export function sortClassLevels(classes = []) {
+  return [...classes].sort((a, b) => {
+    const numA = CLASS_NUMBER(a);
+    const numB = CLASS_NUMBER(b);
+    if (numA != null && numB != null && numA !== numB) return numA - numB;
+    if (numA != null && numB == null) return -1;
+    if (numA == null && numB != null) return 1;
+    return a.localeCompare(b);
+  });
+}
 
-/** All + known catalog categories + custom categories from published courses */
+/** All + admin-published classes only (no hardcoded fallback) */
 export function buildCatalogCategories(courses = []) {
   const inData = [
     ...new Set(courses.map((c) => c.category).filter(Boolean)),
   ];
-  const known = PREDEFINED.filter((c) => inData.includes(c));
-  const custom = inData
-    .filter((c) => !PREDEFINED.includes(c))
-    .sort((a, b) => a.localeCompare(b));
-  const merged = ["All", ...known, ...custom];
-  return merged.length > 1 ? merged : ["All", ...PREDEFINED];
+  const sorted = sortClassLevels(inData);
+  return sorted.length ? ["All", ...sorted] : ["All"];
 }
 
-/** Navbar categories from published courses (All + categories that exist in DB) */
+/** Navbar categories from published courses */
 export function buildNavCategories(courses = []) {
   return buildCatalogCategories(courses);
 }
 
-/** Subcategory pills for a category — from real course data */
+/** Subject pills for a class — only subjects with published courses, in add order */
 export function buildSubTabs(courses = [], category) {
   if (!category || category === "All") return [];
 
-  const subs = [
-    ...new Set(
-      courses
-        .filter((c) => c.category === category)
-        .map((c) => c.subCategory)
-        .filter(Boolean)
-    ),
-  ];
+  const seen = new Set();
+  const subs = [];
+  for (const c of courses) {
+    if (c.category !== category) continue;
+    const sub = (c.subCategory || c.subject || "").trim();
+    if (sub && !seen.has(sub)) {
+      seen.add(sub);
+      subs.push(sub);
+    }
+  }
 
   const allLabel = `All ${category}`;
   return subs.length ? [allLabel, ...subs] : [allLabel];

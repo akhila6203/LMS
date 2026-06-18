@@ -26,6 +26,7 @@ export function mapLearnerCourseDetail(course) {
     quizTitle: qz.quizTitle || "Quiz",
     questions: (qz.questions || []).map((q, qi) => ({
       id: `q-${qi + 1}`,
+      type: q.type || "radio",
       question: q.question || q.q || "Question",
       options:
         typeof q.options === "string" ? JSON.parse(q.options) : q.options || [],
@@ -33,6 +34,8 @@ export function mapLearnerCourseDetail(course) {
         typeof q.correctIndex === "number"
           ? q.correctIndex
           : Number(q.correct) || 0,
+      correctIndices: Array.isArray(q.correctIndices) ? q.correctIndices : [],
+      blankAnswer: q.blankAnswer || "",
     })),
   }));
 

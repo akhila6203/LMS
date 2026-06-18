@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { getCourses } from "../../utils/storage";
 import { buildCoursePayload } from "@/utils/buildCoursePayload";
 import { courseService } from "@/services/courseService";
 
@@ -51,15 +50,10 @@ export default function CourseDetails() {
         if (!cancelled && seq === loadSeqRef.current) {
           setCourse(res.data.course);
         }
-        return;
       } catch {
-        /* fallback to local */
-      }
-
-      const all = getCourses();
-      const found = all.find((c) => String(c.id) === String(id));
-      if (!cancelled && seq === loadSeqRef.current) {
-        setCourse(found || null);
+        if (!cancelled && seq === loadSeqRef.current) {
+          setCourse(null);
+        }
       }
     };
 
@@ -139,7 +133,7 @@ export default function CourseDetails() {
         <div className="mt-6 rounded-2xl bg-white p-6 shadow">
           <h2 className="text-lg font-semibold">Course not found</h2>
           <p className="mt-2 text-sm text-gray-500">
-            This course id doesn’t exist in storage. Please go back and open a valid course.
+            This course was not found in the database. Please go back and open a valid course.
           </p>
         </div>
       </div>

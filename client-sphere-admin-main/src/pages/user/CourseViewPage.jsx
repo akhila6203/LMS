@@ -11,7 +11,6 @@ import {
   Check,
   FileText,
   Lock,
-  ShoppingCart,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,7 +24,6 @@ import { learnerCourseService } from "@/services/learnerCourseService";
 import { mapLearnerCourseDetail } from "@/utils/mapLearnerCourse";
 import { QuizRunner, sampleQuiz } from "@/pages/user/QuizRunner";
 
-import { cartService } from "@/services/cartService";
 import { enrollmentService } from "@/services/enrollmentService";
 
 
@@ -43,7 +41,6 @@ export default function CourseViewPage() {
   const [quizTitle, setQuizTitle] = useState("Module knowledge check");
   const [quizQuestions, setQuizQuestions] = useState(sampleQuiz);
   const [progressInfo, setProgressInfo] = useState(null);
-  const [inCart, setInCart] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,15 +53,6 @@ export default function CourseViewPage() {
         const mapped = mapLearnerCourseDetail(res.data.course);
         
         setCourse(mapped);
-        try {
-          const cartRes = await cartService.getMyCart();
-          const exists = (cartRes.data.cart || []).some(
-            (item) => Number(item.id) === Number(mapped.id)
-          );
-          setInCart(exists);
-        } catch {
-          setInCart(false);
-        }
         const firstPlayable = mapped.videos?.find((v) => v.free && v.url) || mapped.videos?.[0];
         
         setActive(
@@ -118,7 +106,7 @@ export default function CourseViewPage() {
       <div className="text-center py-20">
         <h2 className="text-xl font-semibold">Course not found</h2>
         <Button onClick={() => navigate("/courses")} className="mt-4">
-          Back to courses
+          Back to classes
         </Button>
       </div>
     );
@@ -136,7 +124,7 @@ export default function CourseViewPage() {
   const backLabel = from.includes("development")
     ? "Back to development"
     : from.includes("courses")
-      ? "Back to courses"
+      ? "Back to classes"
       : "Back to home";
 
   // const lessonCount = course.videos?.length || fakeLessons.length;
@@ -146,7 +134,7 @@ export default function CourseViewPage() {
 
   const playLesson = async (l, i) => {
     if (l.locked || (!l.url && !l.free)) {
-      toast.info("Purchase this course to unlock all lessons");
+      toast.info("This lesson is locked");
       return;
     }
     const nextLesson = {
@@ -218,17 +206,14 @@ export default function CourseViewPage() {
 
           <div className="rounded-xl p-6  ">
   
-  {/* CATEGORY + LEVEL */}
+  {/* CLASS + SUBJECT */}
   <div className="flex flex-wrap items-center gap-2 mb-2">
     <span className="bg-gray-200 text-xs px-2 py-1 rounded">
-      {course.category}
+      {course.category || course.classLevel}
     </span>
-    <span className="bg-gray-200 text-xs px-2 py-1 rounded">
-      {course.level}
-    </span>
-    {course.tag && (
-      <span className="bg-gray-200 text-xs px-2 py-1 rounded">
-        {course.tag}
+    {(course.subCategory || course.subject) && (
+      <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
+        {course.subCategory || course.subject}
       </span>
     )}
   </div>
@@ -309,7 +294,7 @@ export default function CourseViewPage() {
                     size="sm"
                     onClick={async () => {
                       if (m.locked) {
-                        toast.info("Complete purchase to open materials");
+                        toast.info("Sign in and enroll to open materials");
                         return;
                       }
                       if (m.url) {
@@ -373,7 +358,7 @@ export default function CourseViewPage() {
             {!enrolled && (
               <div className="mt-3 space-y-2">
                 <p className="text-xs text-muted-foreground">
-                  Preview free lessons or add to cart to unlock the full course.
+                  Sign in with your registered Gmail to access all lessons.
                 </p>
                 <Button
                   className="w-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-500"
@@ -382,37 +367,11 @@ export default function CourseViewPage() {
                     if (firstFree) {
                       playLesson(firstFree, course.videos.indexOf(firstFree));
                     } else {
-                      toast.info("Start with the free preview lessons in the list.");
+                      toast.info("Start with the preview lessons in the list.");
                     }
                   }}
                 >
                   Continue learning
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full rounded-full"
-                  onClick={async () => {
-                    if (inCart) {
-                      navigate("/cart");
-                      return;
-                    }
-                    try {
-                      await cartService.addToCart(course.id);
-                      window.dispatchEvent(new Event("cartChanged"));
-                      setInCart(true);
-                      navigate("/cart");
-                    } catch (err) {
-                      toast.error(err.response?.data?.message || "Could not add to cart");
-                    }
-                  }}
-                  // onClick={() => {
-                  //   toggleCart(course.id, course);
-                  //   setInCart(true);
-                  //   navigate("/cart");
-                  // }}
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  {inCart ? "Go to cart" : "Add to cart"}
                 </Button>
               </div>
             )}
@@ -484,10 +443,10 @@ export default function CourseViewPage() {
         onOpenChange={setQuizOpen}
         title={quizTitle}
         questions={quizQuestions}
-        onComplete={async () => {
+        onComplete={async ({ score, total }) => {
           try {
-            await enrollmentService.completeQuiz(course.id);
-            toast.success("Quiz completed! Course marked as complete.");
+            await enrollmentService.completeQuiz(course.id, { score, total });
+            toast.success(`Quiz submitted! Score: ${score}/${total}`);
             setProgressInfo((p) => ({ ...p, quizDone: true, percent: 100 }));
           } catch (err) {
             toast.error(

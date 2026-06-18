@@ -12,8 +12,11 @@ export const enrollmentService = {
       lessonType,
     }),
 
-  completeQuiz: (courseId) =>
-    axiosClient.post(ENDPOINTS.ENROLLMENTS.quizComplete(courseId)),
+  completeQuiz: (courseId, { score, total } = {}) =>
+    axiosClient.post(ENDPOINTS.ENROLLMENTS.quizComplete(courseId), {
+      score,
+      total,
+    }),
 
   remove: (courseId) => axiosClient.delete(ENDPOINTS.ENROLLMENTS.byCourse(courseId)),
 };

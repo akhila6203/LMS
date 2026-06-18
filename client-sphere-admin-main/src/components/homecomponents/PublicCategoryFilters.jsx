@@ -1,3 +1,5 @@
+import { formatClassDisplay } from "@/utils/classDisplay";
+
 export default function PublicCategoryFilters({
   categories,
   subCategories = [],
@@ -25,7 +27,7 @@ export default function PublicCategoryFilters({
                 : "text-muted-foreground"
             }`}
           >
-            {c}
+            {c === "All" ? c : formatClassDisplay(c)}
           </button>
         ))}
       </div>

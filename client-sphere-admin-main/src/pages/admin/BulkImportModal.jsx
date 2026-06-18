@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { studentService } from "@/services/studentService";
 import {
   parseStudentSpreadsheet,
@@ -13,6 +13,16 @@ export default function BulkImportModal({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [parseError, setParseError] = useState("");
   const [result, setResult] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const resetFileSelection = () => {
+    setFile(null);
+    setPreview([]);
+    setParseError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleFile = async (f) => {
     setFile(f);
@@ -29,7 +39,7 @@ export default function BulkImportModal({ onClose, onSuccess }) {
       setPreview(rows);
       if (!rows.length) {
         setParseError(
-          "No valid rows found. Columns: name, email, password, status, date"
+          "No valid rows found. Columns: name, email, password, date, class, school"
         );
       }
     } catch {
@@ -41,6 +51,17 @@ export default function BulkImportModal({ onClose, onSuccess }) {
   const handleImport = async () => {
     if (!preview.length) return;
 
+    const missingClass = preview.some((row) => !row.classLevel);
+    const missingSchool = preview.some((row) => !row.school);
+    if (missingClass) {
+      toast.error("Each row must include a class column in the Excel sheet");
+      return;
+    }
+    if (missingSchool) {
+      toast.error("Each row must include a school column in the Excel sheet");
+      return;
+    }
+
     setLoading(true);
     setResult(null);
     try {
@@ -48,6 +69,7 @@ export default function BulkImportModal({ onClose, onSuccess }) {
       setResult(res.data);
       if (res.data.imported > 0) {
         toast.success(res.data.message);
+        resetFileSelection();
         onSuccess?.();
       } else {
         toast.warning(res.data.message || "No students imported");
@@ -74,7 +96,7 @@ export default function BulkImportModal({ onClose, onSuccess }) {
     const text = list
       .map(
         (c) =>
-          `${c.name} | ${c.email} | Password: ${c.password} | Status: ${c.status}`
+          `${c.name} | ${c.email} | Password: ${c.password}`
       )
       .join("\n");
     navigator.clipboard.writeText(text);
@@ -90,15 +112,15 @@ export default function BulkImportModal({ onClose, onSuccess }) {
       <div className="bg-white w-full max-w-3xl rounded-xl p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold mb-1">Bulk import students</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Saves to <strong>users</strong> table. Columns:{" "}
+          Upload Excel/CSV with columns:{" "}
           <strong>name</strong>, <strong>email</strong>, <strong>password</strong>{" "}
-          (optional), <strong>status</strong> (active/inactive), <strong>date</strong>.
-          After import, copy credentials and give them to students. They can also use
-          Google sign-in with the same email.
+          (optional), <strong>date</strong>, <strong>class</strong>, and{" "}
+          <strong>school</strong> for each student.
         </p>
 
         <div className="border-2 border-dashed p-8 text-center rounded-xl">
           <input
+            ref={fileInputRef}
             type="file"
             accept=".csv,.xlsx,.xls"
             className="hidden"
@@ -138,8 +160,9 @@ export default function BulkImportModal({ onClose, onSuccess }) {
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Email</th>
                     <th className="text-left p-2">Password</th>
-                    <th className="text-left p-2">Status</th>
                     <th className="text-left p-2">Date</th>
+                    <th className="text-left p-2">Class</th>
+                    <th className="text-left p-2">School</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -148,8 +171,9 @@ export default function BulkImportModal({ onClose, onSuccess }) {
                       <td className="p-2">{row.name}</td>
                       <td className="p-2">{row.email}</td>
                       <td className="p-2">{row.password || "(auto)"}</td>
-                      <td className="p-2">{row.status || "active"}</td>
                       <td className="p-2">{row.date || "—"}</td>
+                      <td className="p-2">{row.classLevel || "—"}</td>
+                      <td className="p-2">{row.school || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -194,7 +218,6 @@ export default function BulkImportModal({ onClose, onSuccess }) {
                         <th className="text-left p-2">Name</th>
                         <th className="text-left p-2">Email</th>
                         <th className="text-left p-2">Password</th>
-                        <th className="text-left p-2">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -203,7 +226,6 @@ export default function BulkImportModal({ onClose, onSuccess }) {
                           <td className="p-2">{c.name}</td>
                           <td className="p-2">{c.email}</td>
                           <td className="p-2 font-mono">{c.password}</td>
-                          <td className="p-2">{c.status}</td>
                         </tr>
                       ))}
                     </tbody>

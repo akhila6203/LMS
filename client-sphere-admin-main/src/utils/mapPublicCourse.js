@@ -1,7 +1,6 @@
 import { parseCourseLabels } from "@/lib/courseLabels";
-import { lineTotal } from "@/utils/coursePricing";
 
-const DEFAULT_PREVIEW_COUNT = 4;
+const DEFAULT_PREVIEW_COUNT = 1;
 
 function normalizeOverview(overview) {
   if (!overview) return [];
@@ -43,31 +42,29 @@ export function sumVideoHours(videos = []) {
 /** Shape API course for public CourseCard / listing */
 export function mapPublicCourseForCard(course) {
   const videos = course.videos || [];
-  const lessonCount =
-    course.lessonCount ?? course.lessons ?? videos.length ?? 0;
+  const topicCount =
+    course.topicCount ?? course.topics ?? course.lessonCount ?? course.lessons ?? videos.length ?? 0;
   const labels = parseCourseLabels(course);
 
   return {
     ...course,
+    category: course.category || course.classLevel || "",
+    subCategory: course.subCategory || course.sub_category || course.subject || "",
     overview: normalizeOverview(course.overview),
     id: course.id,
     labels,
-    subCategory: course.subCategory || course.sub_category || "",
-    lessons: lessonCount,
+    lessons: topicCount,
+    topics: topicCount,
+    topicCount,
     hours:
       course.hours ??
-      (sumVideoHours(videos) || Math.max(1, lessonCount)),
+      (sumVideoHours(videos) || Math.max(1, topicCount)),
     rating: course.rating ?? 4.8,
     reviews: course.reviews ?? course.students ?? 0,
     cover: course.cover ?? "from-purple-500 to-indigo-600",
-    tag: course.tag ?? labels.find((l) => l !== course.level) ?? labels[0] ?? "Popular",
+    tag: course.tag ?? labels.find((l) => l !== course.level) ?? "",
+    createdAt: course.createdAt ?? course.created_at ?? null,
     status: course.status,
-    price: Number(course.price) || 0,
-    discountPercent: Number(course.discountPercent ?? course.discount_percent) || 0,
-    finalPrice: lineTotal(
-      course.price,
-      course.discountPercent ?? course.discount_percent
-    ),
   };
 }
 

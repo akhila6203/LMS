@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function PageWithFooter({ children, className, variant = "public" }) {
   const content =
     variant === "user" ? (
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[1400px] flex-1 px-3 pt-6 pb-10 sm:px-4 sm:pt-8 sm:pb-12 lg:px-6 lg:pt-10 lg:pb-14">
         {children}
       </div>
     ) : (

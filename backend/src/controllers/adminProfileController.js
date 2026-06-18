@@ -74,14 +74,6 @@ exports.updateProfile = async (req, res) => {
       return res.status(409).json({ message: "Email already registered as student" });
     }
 
-    const googleEmail = await query(
-      `SELECT id FROM google_users WHERE email = ? LIMIT 1`,
-      [normalizedEmail]
-    );
-    if (googleEmail.length) {
-      return res.status(409).json({ message: "Email already registered as Google student" });
-    }
-
     await query(
       `UPDATE admins
        SET name = ?, email = ?, bio = ?, avatar = ?

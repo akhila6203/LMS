@@ -9,21 +9,16 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  Zap,
-  FolderOpen,
-  ShoppingBag,
   Images,
   Folder,
-   Video
+  Video,
 } from "lucide-react";
 
-import logo from "../assets/photos/logo.png"
+import logo2 from "../assets/photos/logo2.png";
 
-// ✅ MENU FIRST DEFINE
 const adminMenu = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { name: "Courses", path: "/courses", icon: BookOpen },
-  { name: "Orders", path: "/admin/orders", icon: ShoppingBag },
+  { name: "Classes", path: "/courses", icon: BookOpen },
   { name: "Students", path: "/students", icon: Users },
   { name: "Materials", path: "/materials", icon: Folder },
   { name: "Banners", path: "/admin/banners", icon: Images },
@@ -34,7 +29,7 @@ const adminMenu = [
 const userMenu = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { name: "My Learning", path: "/settings?tab=learning", icon: BookOpen },
-  { name: "Courses", path: "/courses", icon: LayoutDashboard },
+  { name: "Classes", path: "/courses", icon: BookOpen },
   { name: "My Materials", path: "/materials", icon: Folder },
   { name: "Settings", path: "/settings", icon: Settings },
 ];
@@ -80,17 +75,18 @@ export function AppSidebar({ collapsed, setCollapsed }) {
 
       <aside
         className={`fixed left-0 top-0 h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 z-50 ${
-          collapsed ? "w-[72px]" : "w-[260px]"
+          collapsed ? "w-[68px]" : "w-[220px]"
         }`}
       > 
   
      {/* LOGO */}
      <div className="h-16 flex items-center px-5 border-b border-sidebar-border gap-3">
         <img
-          src={logo}
+          src={logo2}
           alt="LMS"
-          className={`w-auto object-contain invert brightness-0 transition-all duration-300 
-            ${collapsed ? "h-10 mx-auto" : "h-12 sm:h-10"}`}
+          className="h-10 sm:h-10 md:h-12 w-auto object-contain"
+          // className={`w-auto object-contain invert brightness-0 transition-all duration-300 
+          //   ${collapsed ? "h-10 mx-auto" : "h-12 sm:h-10"}`}
         />
 
       </div>

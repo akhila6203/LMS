@@ -17,47 +17,8 @@ const sampleVideos = [
 // ✅ REMOVED TYPE
 // export type CatalogCourse = {...}
 
-export const CATEGORIES = [
-  "All",
-  "Development",
-  "Business",
-  "Data Science",
-  "Design",
-  "Marketing",
-  "IT & Software",
-];
-
-export const DEVELOPMENT_TABS = [
-  "All Development",
-  "Web Technology",
-  "Programming",
-  "Mobile Development",
-];
-
-export const CATEGORY_TABS = {
-  Development: DEVELOPMENT_TABS,
-  Business: ["All Business", "Entrepreneurship", "Communication", "Analytics"],
-  "Data Science": ["All Data Science", "Python", "Machine Learning", "Visualization"],
-  Design: ["All Design", "UI Design", "UX Research", "Graphic Design"],
-  Marketing: ["All Marketing", "SEO", "Social Media", "Performance"],
-  "IT & Software": ["All IT & Software", "Cloud", "Cyber Security", "Networking"],
-};
-
-export const HOME_NAV_ITEMS = [
-  "All",
-  "Development",
-  "Business",
-  "Data Science",
-  "Design",
-  "Marketing",
-  "IT & Software",
-];
-
-/** School / LMS class (grade) options for admin course creation */
+/** School class levels (grades 1–9) + custom via "Others" */
 export const CLASS_OPTIONS = [
-  "Nursery",
-  "LKG",
-  "UKG",
   "Class 1",
   "Class 2",
   "Class 3",
@@ -67,37 +28,69 @@ export const CLASS_OPTIONS = [
   "Class 7",
   "Class 8",
   "Class 9",
-  "Class 10",
-  "Class 11",
-  "Class 12",
-  "Undergraduate",
-  "Postgraduate",
-  "Professional",
 ];
 
-/** Subject options aligned with typical LMS offerings */
-export const SUBJECT_OPTIONS = [
-  "Mathematics",
-  "Science",
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "English",
-  "Hindi",
+/** Classes 1–9 for materials upload */
+export const MATERIAL_CLASS_OPTIONS = [...CLASS_OPTIONS];
+
+/** Schools for student enrollment — populated by admin via Add / bulk import */
+export const SCHOOL_OPTIONS = [];
+
+/** Primary subjects (Class 1–5) */
+export const PRIMARY_SUBJECT_OPTIONS = [
   "Telugu",
-  "Social Studies",
+  "Hindi",
+  "English",
+  "Science",
+  "Maths",
+  "Social",
   "Computer Science",
-  "Programming",
-  "Web Development",
-  "Data Science",
-  "Machine Learning",
-  "Business",
-  "Marketing",
-  "Design",
-  "Accounting",
-  "Economics",
   "General",
 ];
+
+/** Higher subjects (Class 6–9) */
+export const HIGHER_SUBJECT_OPTIONS = [
+  "Telugu",
+  "Hindi",
+  "English",
+  "Maths",
+  "Physics",
+  "Biology",
+  "Chemistry",
+  "Social",
+  "Computer Science",
+  "General",
+];
+
+const CLASS_NUMBER = (classLevel = "") => {
+  const match = String(classLevel).match(/(\d+)/);
+  return match ? Number(match[1]) : 0;
+};
+
+/** Subjects shown when admin picks a class (Class 1–5 vs 6–9) */
+export function getSubjectsForClass(classLevel) {
+  const n = CLASS_NUMBER(classLevel);
+  if (n >= 6) return [...HIGHER_SUBJECT_OPTIONS];
+  if (n >= 1) return [...PRIMARY_SUBJECT_OPTIONS];
+  return [...PRIMARY_SUBJECT_OPTIONS, ...HIGHER_SUBJECT_OPTIONS.filter(
+    (s) => !PRIMARY_SUBJECT_OPTIONS.includes(s)
+  )];
+}
+
+/** @deprecated use getSubjectsForClass(classLevel) */
+export const SUBJECT_OPTIONS = PRIMARY_SUBJECT_OPTIONS;
+
+/** Class is stored as category; subject as subCategory */
+export const CATEGORIES = ["All", ...CLASS_OPTIONS];
+
+export const CATEGORY_TABS = Object.fromEntries(
+  CLASS_OPTIONS.map((cls) => [
+    cls,
+    [`All ${cls}`, ...getSubjectsForClass(cls)],
+  ])
+);
+
+export const HOME_NAV_ITEMS = ["All", ...CLASS_OPTIONS];
 
 const rawCatalog = [
   {

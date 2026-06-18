@@ -1,51 +1,82 @@
 const { query } = require("../utils/dbQuery");
 const {
-  enrichCourse,
-  serializeLabels,
-  deriveLevel,
-  normalizeLabels,
-} = require("../utils/courseLabels");
+  STUDENT_COUNT_SQL,
+  resolveClassLevel,
+  resolveSubject,
+  mapCourseRow,
+} = require("../utils/courseMapper");
 const {
   mapVideoForAccess,
-  mapPricingFromRow,
   PREVIEW_LESSON_COUNT,
 } = require("../utils/enrollmentHelpers");
 
-const mapCourseRow = (row) =>
-  enrichCourse(
-    {
-      id: row.id,
-      title: row.title,
-      category: row.category,
-      subCategory: row.sub_category,
-      subject: row.subject,
-      classLevel: row.class_level,
-      instructor: row.instructor,
-      level: row.level,
-      description: row.description,
-      status: row.status,
-      students: row.students,
-      thumbnail: row.thumbnail,
-      createdAt: row.created_at,
-      ...mapPricingFromRow(row),
-      overview: row.overview ? JSON.parse(row.overview) : [],
-    },
-    row
-  );
-
 const mapVideoRow = (row) => ({
+  id: row.id,
   title: row.title,
   url: row.url,
   duration: row.duration || "",
   uploadedAt: row.uploaded_at,
 });
 
+const mapQuizQuestionRow = (q) => {
+  const options =
+    typeof q.options === "string" ? JSON.parse(q.options) : q.options || [];
+  const correctAnswers =
+    typeof q.correct_answers === "string"
+      ? JSON.parse(q.correct_answers)
+      : q.correct_answers;
+
+  return {
+    q: q.question,
+    type: q.question_type || "radio",
+    options,
+    correct: q.correct_index,
+    correctIndices: Array.isArray(correctAnswers)
+      ? correctAnswers
+      : q.question_type === "checkbox"
+        ? []
+        : undefined,
+    blankAnswer:
+      q.question_type === "fill_blank" && Array.isArray(correctAnswers)
+        ? correctAnswers[0] || ""
+        : "",
+  };
+};
+
+const serializeQuizQuestion = (q) => {
+  const type = q.type || "radio";
+  let correctIndex = Number(q.correct) || 0;
+  let correctAnswers = null;
+  let options = q.options || [];
+
+  if (type === "checkbox") {
+    correctAnswers = Array.isArray(q.correctIndices) ? q.correctIndices : [];
+    correctIndex = correctAnswers[0] || 0;
+  } else if (type === "fill_blank") {
+    const answer = String(q.blankAnswer || "").trim();
+    correctAnswers = answer ? [answer] : [];
+    options = [];
+    correctIndex = 0;
+  }
+
+  return {
+    question: (q.q || "").trim(),
+    questionType: type,
+    options,
+    correctIndex,
+    correctAnswers: correctAnswers ? JSON.stringify(correctAnswers) : null,
+  };
+};
+
 async function fetchCourseFullById(id) {
-  const courseRows = await query("SELECT * FROM courses WHERE id = ?", [id]);
+  const courseRows = await query(
+    `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count FROM courses c WHERE c.id = ?`,
+    [id]
+  );
   if (!courseRows.length) return null;
 
   const videos = await query(
-    `SELECT title, url, duration, uploaded_at
+    `SELECT id, title, url, duration, uploaded_at
      FROM course_videos WHERE course_id = ? ORDER BY sort_order`,
     [id]
   );
@@ -64,18 +95,13 @@ async function fetchCourseFullById(id) {
   const quizzes = [];
   for (const quizRow of quizRows) {
     const questions = await query(
-      "SELECT question, options, correct_index FROM quiz_questions WHERE quiz_id = ? ORDER BY sort_order",
+      "SELECT question, question_type, options, correct_index, correct_answers FROM quiz_questions WHERE quiz_id = ? ORDER BY sort_order",
       [quizRow.id]
     );
 
     quizzes.push({
       quizTitle: quizRow.quiz_title,
-      questions: questions.map((q) => ({
-        q: q.question,
-        options:
-          typeof q.options === "string" ? JSON.parse(q.options) : q.options,
-        correct: q.correct_index,
-      })),
+      questions: questions.map(mapQuizQuestionRow),
       attempts: 0,
       passRate: 0,
     });
@@ -98,6 +124,7 @@ exports.getCourses = async (req, res) => {
   try {
     const rows = await query(
       `SELECT c.*,
+        ${STUDENT_COUNT_SQL} AS student_count,
         (SELECT COUNT(*) FROM course_videos v WHERE v.course_id = c.id) AS video_count
        FROM courses c
        ORDER BY c.id DESC`
@@ -138,6 +165,7 @@ exports.getPublicCourses = async (req, res) => {
   try {
     const rows = await query(
       `SELECT c.*,
+        ${STUDENT_COUNT_SQL} AS student_count,
         (SELECT COUNT(*) FROM course_videos v WHERE v.course_id = c.id) AS video_count
        FROM courses c
        WHERE c.status = 'Active'
@@ -150,6 +178,8 @@ exports.getPublicCourses = async (req, res) => {
         ...mapCourseRow(row),
         lessonCount: videoCount,
         lessons: videoCount,
+        topics: videoCount,
+        topicCount: videoCount,
       };
     });
 
@@ -166,7 +196,10 @@ exports.getPublicCourseById = async (req, res) => {
     const { id } = req.params;
 
     const courseRows = await query(
-      "SELECT * FROM courses WHERE id = ? AND status = 'Active' LIMIT 1",
+      `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count
+       FROM courses c
+       WHERE c.id = ? AND c.status = 'Active'
+       LIMIT 1`,
       [id]
     );
     if (!courseRows.length) {
@@ -185,6 +218,8 @@ exports.getPublicCourseById = async (req, res) => {
       previewLessonCount: PREVIEW_LESSON_COUNT,
       lessonCount: videos.length,
       lessons: videos.length,
+      topics: videos.length,
+      topicCount: videos.length,
     };
 
     res.json({ course });
@@ -197,18 +232,9 @@ exports.getPublicCourseById = async (req, res) => {
 exports.createCourse = async (req, res) => {
   const {
     title,
-    category,
-    subCategory,
-    subject,
-    classLevel,
     instructor,
-    level,
-    labels,
     description,
     status,
-    students,
-    price,
-    discountPercent,
     thumbnail,
     videos = [],
     materials = [],
@@ -222,30 +248,30 @@ exports.createCourse = async (req, res) => {
     return res.status(400).json({ message: "Course title is required" });
   }
 
+  const classLevel = resolveClassLevel(req.body);
+  const subject = resolveSubject(req.body);
+
+  if (!classLevel) {
+    return res.status(400).json({ message: "Class is required" });
+  }
+  if (!subject) {
+    return res.status(400).json({ message: "Subject is required" });
+  }
+
   const adminId = req.user?.id || null;
-  const normalizedLabels = normalizeLabels(labels?.length ? labels : level ? [level] : []);
-  const storedLevel = deriveLevel(normalizedLabels);
-  const labelsJson = serializeLabels(normalizedLabels);
 
   try {
     const courseResult = await query(
       `INSERT INTO courses
-        (title, category, sub_category, subject, class_level, instructor, level, labels, description, status, students, price, discount_percent, thumbnail, overview, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (title, class_level, subject, instructor, description, status, thumbnail, overview, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title.trim(),
-        category || "",
-        subCategory || "",
-        subject || "",
-        classLevel || "",
+        classLevel,
+        subject,
         instructor || "",
-        storedLevel,
-        labelsJson,
         description || "",
         status || "Draft",
-        Number(students) || 0,
-        Number(price) || 0,
-        Math.min(100, Math.max(0, Number(discountPercent) || 0)),
         thumbnail || null,
         JSON.stringify(overview || []),
         adminId,
@@ -317,24 +343,28 @@ exports.createCourse = async (req, res) => {
 
       for (let i = 0; i < quiz.questions.length; i++) {
         const q = quiz.questions[i];
-        if (!q?.q?.trim()) continue;
+        const serialized = serializeQuizQuestion(q);
+        if (!serialized.question) continue;
         await query(
-          `INSERT INTO quiz_questions (quiz_id, question, options, correct_index, sort_order)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO quiz_questions (quiz_id, question, question_type, options, correct_index, correct_answers, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             quizId,
-            q.q.trim(),
-            JSON.stringify(q.options || []),
-            Number(q.correct) || 0,
+            serialized.question,
+            serialized.questionType,
+            JSON.stringify(serialized.options),
+            serialized.correctIndex,
+            serialized.correctAnswers,
             i,
           ]
         );
       }
     }
 
-    const created = await query("SELECT * FROM courses WHERE id = ?", [
-      courseId,
-    ]);
+    const created = await query(
+      `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count FROM courses c WHERE c.id = ?`,
+      [courseId]
+    );
 
     res.status(201).json({
       message: "Course created successfully",
@@ -369,18 +399,9 @@ exports.updateCourse = async (req, res) => {
   const { id } = req.params;
   const {
     title,
-    category,
-    subCategory,
-    subject,
-    classLevel,
     instructor,
-    level,
-    labels,
     description,
     status,
-    students,
-    price,
-    discountPercent,
     thumbnail,
     videos = [],
     materials = [],
@@ -394,9 +415,15 @@ exports.updateCourse = async (req, res) => {
     return res.status(400).json({ message: "Course title is required" });
   }
 
-  const normalizedLabels = normalizeLabels(labels?.length ? labels : level ? [level] : []);
-  const storedLevel = deriveLevel(normalizedLabels);
-  const labelsJson = serializeLabels(normalizedLabels);
+  const classLevel = resolveClassLevel(req.body);
+  const subject = resolveSubject(req.body);
+
+  if (!classLevel) {
+    return res.status(400).json({ message: "Class is required" });
+  }
+  if (!subject) {
+    return res.status(400).json({ message: "Subject is required" });
+  }
 
   try {
     const existing = await query("SELECT id FROM courses WHERE id = ? LIMIT 1", [
@@ -408,24 +435,17 @@ exports.updateCourse = async (req, res) => {
 
     await query(
       `UPDATE courses
-       SET title = ?, category = ?, sub_category = ?, subject = ?, class_level = ?,
-           instructor = ?, level = ?, labels = ?, description = ?, status = ?, students = ?,
-           price = ?, discount_percent = ?, thumbnail = ?,overview = ?
+       SET title = ?, class_level = ?, subject = ?,
+           instructor = ?, description = ?, status = ?,
+           thumbnail = ?, overview = ?
        WHERE id = ?`,
       [
         title.trim(),
-        category || "",
-        subCategory || "",
-        subject || "",
-        classLevel || "",
+        classLevel,
+        subject,
         instructor || "",
-        storedLevel,
-        labelsJson,
         description || "",
         status || "Draft",
-        Number(students) || 0,
-        Number(price) || 0,
-        Math.min(100, Math.max(0, Number(discountPercent) || 0)),
         thumbnail || null,
         JSON.stringify(overview || []),
         id,
@@ -489,15 +509,18 @@ exports.updateCourse = async (req, res) => {
 
       for (let i = 0; i < quiz.questions.length; i++) {
         const q = quiz.questions[i];
-        if (!q?.q?.trim()) continue;
+        const serialized = serializeQuizQuestion(q);
+        if (!serialized.question) continue;
         await query(
-          `INSERT INTO quiz_questions (quiz_id, question, options, correct_index, sort_order)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO quiz_questions (quiz_id, question, question_type, options, correct_index, correct_answers, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             newQuizId,
-            q.q.trim(),
-            JSON.stringify(q.options || []),
-            Number(q.correct) || 0,
+            serialized.question,
+            serialized.questionType,
+            JSON.stringify(serialized.options),
+            serialized.correctIndex,
+            serialized.correctAnswers,
             i,
           ]
         );

@@ -10,17 +10,13 @@ import {
   ListChecks,
   Check,
   Award,
-  ShoppingCart,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-// import { ShoppingCart } from "lucide-react";
 import VideoPlayer from "../../pages/user/VideoPlayer";
 import { PageWithFooter } from "@/components/layout/PageWithFooter";
 import { publicCourseService } from "@/services/publicCourseService";
 import { mapPublicCourseDetail } from "@/utils/mapPublicCourse";
-// import { toggleCart, isInCart, isLearnerLoggedIn } from "@/utils/userStore";
 import { isLearnerLoggedIn } from "@/utils/userStore";
-import { cartService } from "@/services/cartService";
 
 const FALLBACK_VIDEO =
   "https://cdn.pixabay.com/video/2016/09/21/5456-183788693_medium.mp4";
@@ -33,7 +29,6 @@ export default function PublicCoursePage() {
   const [error, setError] = useState(null);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
   const [tab, setTab] = useState("overview");
-  const [cartAdded, setCartAdded] = useState(false);
 
   const isLoggedIn = isLearnerLoggedIn();
 
@@ -49,23 +44,6 @@ export default function PublicCoursePage() {
           const mapped = mapPublicCourseDetail(res.data.course);
           setCourse(mapped);
           setActiveLessonIndex(0);
-
-          if (isLearnerLoggedIn()) {
-            try {
-              const cartRes = await cartService.getMyCart();
-              const exists = (cartRes.data.cart || []).some(
-                (item) => Number(item.id) === Number(mapped.id)
-              );
-              setCartAdded(exists);
-            } catch {
-              setCartAdded(false);
-            }
-          } else {
-            setCartAdded(false);
-          }
-          // setCourse(mapped);
-          // setCartAdded(isInCart(mapped.id));
-          // setActiveLessonIndex(0);
         }
       } catch (err) {
         if (!cancelled) {
@@ -152,10 +130,10 @@ export default function PublicCoursePage() {
     <Lock className="text-purple-600 shrink-0" />
     <div>
       <p className="font-semibold text-sm">
-        Preview: first 4 lessons free
+        Preview: first lesson free
       </p>
       <p className="text-xs text-gray-500">
-        Login to continue learning this course.
+        Sign in to watch all lessons for your class.
       </p>
     </div>
   </div>
@@ -210,16 +188,13 @@ export default function PublicCoursePage() {
           <div>
             <div className="flex gap-2 mb-2 flex-wrap">
               <span className="bg-gray-200 text-xs px-2 py-1 rounded">
-                {course.category}
+                {course.category || course.classLevel}
               </span>
-              {course.subCategory && (
+              {(course.subCategory || course.subject) && (
                 <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
-                  {course.subCategory}
+                  {course.subCategory || course.subject}
                 </span>
               )}
-              <span className="bg-gray-200 text-xs px-2 py-1 rounded">
-                {course.level}
-              </span>
             </div>
 
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
@@ -342,44 +317,15 @@ export default function PublicCoursePage() {
             <h3 className="text-sm font-semibold">Get full access</h3>
             <p className="text-xs text-gray-500">
               {isLoggedIn
-                ? "Add this course to your cart and complete checkout to unlock all content."
-                : "Sign in to purchase and unlock all lessons, materials, and quizzes."}
+                ? "Open this class to access all lessons, materials, and quizzes."
+                : "Sign in with your admin-registered Gmail to unlock all content."}
             </p>
             <button
               type="button"
-              onClick={async () => {
-                if (!isLoggedIn) {
-                  navigate(`/login?redirect=/courses/${id}`);
-                  return;
-                }
-                if (cartAdded) {
-  navigate("/cart");
-  return;
-}
-
-try {
-  await cartService.addToCart(course.id);
-  window.dispatchEvent(new Event("cartChanged"));
-  setCartAdded(true);
-  navigate("/cart");
-} catch (err) {
-  console.log(err);
-}
-                // toggleCart(course.id, course);
-                // setCartAdded(true);
-                // navigate("/cart");
-              }}
+              onClick={handleProtected}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-500 text-white py-2 rounded-lg text-sm"
             >
-              <ShoppingCart className="h-4 w-4" />
-              {cartAdded ? "Go to cart" : "Add to cart"}
-            </button>
-            <button
-              type="button"
-              onClick={handleProtected}
-              className="w-full border py-2 rounded-lg text-sm"
-            >
-              {isLoggedIn ? "Continue learning" : "Sign in"}
+              {isLoggedIn ? "Open class" : "Sign in with Gmail"}
             </button>
           </div>
 

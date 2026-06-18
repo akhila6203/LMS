@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { courseService } from "@/services/courseService";
-import { getCourses } from "@/utils/storage";
 
 export default function useCourses() {
   const [courses, setCourses] = useState([]);
@@ -14,8 +13,7 @@ export default function useCourses() {
       const res = await courseService.getAll();
       setCourses(res.data.courses || []);
     } catch (err) {
-      const local = getCourses();
-      setCourses(local.length ? local : []);
+      setCourses([]);
       setError(err.response?.data?.message || "Failed to load courses");
     } finally {
       setLoading(false);

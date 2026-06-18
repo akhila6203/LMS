@@ -11,8 +11,10 @@ const formatRow = (row, sourceType) => ({
   duration: row.duration || "",
   courseId: row.course_id,
   course: row.course_title,
-  category: row.category || "",
-  subCategory: row.sub_category || "",
+  category: row.class_level || "",
+  subCategory: row.subject || "",
+  classLevel: row.class_level || "",
+  subject: row.subject || "",
   uploadedBy: row.instructor || "Admin",
   uploadedAt: row.uploaded_at,
 });
@@ -21,7 +23,7 @@ exports.getAllMaterials = async (_req, res) => {
   try {
     const materialRows = await query(
       `SELECT cm.id, cm.title, cm.type, cm.url, cm.uploaded_at,
-              c.id AS course_id, c.title AS course_title, c.category, c.sub_category, c.instructor
+              c.id AS course_id, c.title AS course_title, c.class_level, c.subject, c.instructor
        FROM course_materials cm
        INNER JOIN courses c ON c.id = cm.course_id
        WHERE c.status = 'Active'
@@ -30,7 +32,7 @@ exports.getAllMaterials = async (_req, res) => {
 
     const videoRows = await query(
       `SELECT cv.id, cv.title, cv.url, cv.duration, cv.uploaded_at,
-              c.id AS course_id, c.title AS course_title, c.category, c.sub_category, c.instructor
+              c.id AS course_id, c.title AS course_title, c.class_level, c.subject, c.instructor
        FROM course_videos cv
        INNER JOIN courses c ON c.id = cv.course_id
        WHERE c.status = 'Active'
@@ -59,8 +61,11 @@ exports.createMaterial = async (req, res) => {
     type = "PDF",
     url = "",
     courseId,
+    classLevel,
+    subject,
     category,
     subCategory,
+    lessonVideoId,
     addToMatching = false,
     duration = "",
   } = req.body;
@@ -76,16 +81,19 @@ exports.createMaterial = async (req, res) => {
   try {
     let courseIds = [];
 
-    if (addToMatching && (category || subCategory)) {
+    const matchClass = String(classLevel || category || "").trim();
+    const matchSubject = String(subject || subCategory || "").trim();
+
+    if (addToMatching && (matchClass || matchSubject)) {
       let sql = "SELECT id FROM courses WHERE 1=1";
       const params = [];
-      if (category?.trim()) {
-        sql += " AND category = ?";
-        params.push(category.trim());
+      if (matchClass) {
+        sql += " AND class_level = ?";
+        params.push(matchClass);
       }
-      if (subCategory?.trim()) {
-        sql += " AND sub_category = ?";
-        params.push(subCategory.trim());
+      if (matchSubject) {
+        sql += " AND subject = ?";
+        params.push(matchSubject);
       }
       const rows = await query(sql, params);
       courseIds = rows.map((r) => r.id);
@@ -95,7 +103,7 @@ exports.createMaterial = async (req, res) => {
 
     if (!courseIds.length) {
       return res.status(400).json({
-        message: "Select a course or matching category/sub-category",
+        message: "Select a lesson or matching class & subject",
       });
     }
 
@@ -126,9 +134,17 @@ exports.createMaterial = async (req, res) => {
         );
         const sortOrder = Number(countRows[0]?.cnt) || 0;
         await query(
-          `INSERT INTO course_materials (course_id, title, type, url, sort_order, uploaded_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [cid, title.trim(), type, url.trim(), sortOrder, uploadedAt]
+          `INSERT INTO course_materials (course_id, lesson_video_id, title, type, url, sort_order, uploaded_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            cid,
+            lessonVideoId ? Number(lessonVideoId) : null,
+            title.trim(),
+            type,
+            url.trim(),
+            sortOrder,
+            uploadedAt,
+          ]
         );
       }
     }

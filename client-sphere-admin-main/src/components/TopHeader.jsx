@@ -5,23 +5,13 @@ import {
   User,
   LogOut,
   Settings,
-  Heart,
-  ShoppingCart,
   BookOpen,
+  Languages,
 } from "lucide-react";
 
 import { useTheme } from "@/contexts/ThemeContext";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
-// import {
-//   getWishlist,
-//   WISHLIST_CHANGED_EVENT,
-// } from "@/utils/userStore";
-import { wishlistService } from "@/services/wishlistService";
-import { isLearnerLoggedIn } from "@/utils/userStore";
-
-import { useCartCount } from "@/hooks/useCartCount";
 
 import { getSessionUser, clearAuthSession } from "@/utils/authSession";
 import { useHeaderProfile } from "@/hooks/useHeaderProfile";
@@ -35,10 +25,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import logo from "../assets/photos/logo.png"
+import VocabularySearch from "@/components/VocabularySearch";
 
 export function TopHeader() {
   const { isDark, toggle } = useTheme();
   const navigate = useNavigate();
+  const [vocabOpen, setVocabOpen] = useState(false);
   const user = getSessionUser() || {
     name: "Learner",
     email: "learner@example.com",
@@ -50,55 +42,32 @@ export function TopHeader() {
 
   const location = useLocation();
   const path = location.pathname;
-  // const [wishlistCount, setWishlistCount] = useState(() => getWishlist().length);
-  const [wishlistCount, setWishlistCount] = useState(0);
-
-  const cartCount = useCartCount();
-
- useEffect(() => {
-  const refreshWishlist = async () => {
-    if (!isLearnerLoggedIn()) {
-      setWishlistCount(0);
-      return;
-    }
-
-    try {
-      const res = await wishlistService.getAll();
-      setWishlistCount((res.data.courseIds || []).length);
-    } catch {
-      setWishlistCount(0);
-    }
-  };
-
-  refreshWishlist();
-
-  window.addEventListener("wishlistChanged", refreshWishlist);
-
-  return () => {
-    window.removeEventListener("wishlistChanged", refreshWishlist);
-  };
-}, []);
+  const settingsTab = new URLSearchParams(location.search).get("tab");
 
 let title = "Dashboard";
 
 if (path.startsWith("/admin/courses/")) {
-  title = "Course Detail";
+  title = "Class Detail";
 } else if (path.startsWith("/courses/create")) {
-  title = "Create Course";
+  title = "Create Class";
 } else if (path.startsWith("/courses/")) {
-  title = "Course Detail";
+  title = "Class Detail";
 } else if (path.startsWith("/courses")) {
-  title = "Courses";
+  title = "Classes";
 } else if (path.startsWith("/dashboard")) {
   title = "Dashboard";
 } else if (path.startsWith("/students")) {
   title = "Students";
 } else if (path.startsWith("/materials")) {
   title = "Materials";
+} else if (path.startsWith("/admin/banners")) {
+  title = "Banners";
+} else if (path.startsWith("/admin/home-video")) {
+  title = "Home Videos";
 } else if (path.startsWith("/quiz")) {
   title = "Quiz";
 } else if (path.startsWith("/settings")) {
-  title = "Settings";
+  title = !isAdmin && settingsTab === "learning" ? "My Learning" : "Settings";
 } else if (path.startsWith("/my-learning")) {
   title = "My Learning";
 }
@@ -111,9 +80,9 @@ if (path.startsWith("/admin/courses/")) {
           {user?.role !== "admin" ? (
             <button
               type="button"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/dashboard", { replace: true })}
               className="flex items-center gap-2"
-              aria-label="Home"
+              aria-label="Dashboard"
             >
               <img
                 src={logo}
@@ -131,7 +100,9 @@ if (path.startsWith("/admin/courses/")) {
             //   <span className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">LMS</span>
             // </button>
           ) : (
-            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+              {title}
+            </h1>
           )}
         </div>
         
@@ -153,35 +124,19 @@ if (path.startsWith("/admin/courses/")) {
             <>
               <button
                 type="button"
+                onClick={() => setVocabOpen(true)}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              >
+                <Languages className="h-4 w-4" />
+                Vocabulary
+              </button>
+              <button
+                type="button"
                 onClick={() => navigate("/settings?tab=learning")}
                 className="hidden md:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
               >
                 <BookOpen className="h-4 w-4" />
                 My Learning
-              </button>
-              <button
-                // onClick={() => navigate("/wishlist")}
-                onClick={() => navigate("/settings?tab=wishlist")}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-              >
-                <Heart className="h-4 w-4" />
-                {wishlistCount > 0 && (
-                  <span className="absolute right-1 top-1 rounded-full bg-primary px-1 text-[10px] text-white">
-                    {wishlistCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => navigate("/cart")}
-                // onClick={() => navigate("/settings?tab=cart")}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                {cartCount > 0 && (
-                  <span className="absolute right-1 top-1 rounded-full bg-primary px-1 text-[10px] text-white">
-                    {cartCount}
-                  </span>
-                )}
               </button>
             </>
           )}
@@ -280,16 +235,10 @@ if (path.startsWith("/admin/courses/")) {
                 <DropdownMenuItem onClick={() => navigate("/settings?tab=profile")} className="cursor-pointer gap-2">
                     <User className="h-4 w-4" /> Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings?tab=learning")} className="cursor-pointer gap-2">
-                    <User className="h-4 w-4" /> My learning
+                  <DropdownMenuItem onClick={() => navigate("/my-learning")} className="cursor-pointer gap-2">
+                    <BookOpen className="h-4 w-4" /> My learning
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings?tab=wishlist")} className="cursor-pointer gap-2">
-                    <Heart className="h-4 w-4" /> Wishlist
-                  </DropdownMenuItem>
-                  {/* <DropdownMenuItem onClick={() => navigate("/settings?tab=cart")} className="cursor-pointer gap-2">
-                    <ShoppingCart className="h-4 w-4" /> Cart
-                  </DropdownMenuItem> */}
-                  <DropdownMenuItem onClick={() => navigate("/settings?tab=profile")} className="cursor-pointer gap-2">
+                  <DropdownMenuItem onClick={() => navigate("/settings?tab=personal")} className="cursor-pointer gap-2">
                     <Settings className="h-4 w-4" /> Settings
                   </DropdownMenuItem>
                   
@@ -301,7 +250,7 @@ if (path.startsWith("/admin/courses/")) {
                 className="cursor-pointer gap-2 text-destructive focus:text-destructive"
                 onClick={() => {
                   clearAuthSession();
-                  navigate("/login");
+                  navigate("/", { replace: true });
                 }}
               >
                 <LogOut className="h-4 w-4" /> Sign out
@@ -310,6 +259,9 @@ if (path.startsWith("/admin/courses/")) {
           </DropdownMenu>
         </div>
       </header>
+      {user?.role !== "admin" && (
+        <VocabularySearch open={vocabOpen} onOpenChange={setVocabOpen} />
+      )}
     </>
   );
 }
@@ -581,7 +533,7 @@ if (path.startsWith("/admin/courses/")) {
 //                 <DropdownMenuItem onClick={() => navigate("/settings?tab=profile")} className="cursor-pointer gap-2">
 //                     <User className="h-4 w-4" /> Profile
 //                   </DropdownMenuItem>
-//                   <DropdownMenuItem onClick={() => navigate("/settings?tab=learning")} className="cursor-pointer gap-2">
+//                   <DropdownMenuItem onClick={() => navigate("/my-learning")} className="cursor-pointer gap-2">
 //                     <User className="h-4 w-4" /> My learning
 //                   </DropdownMenuItem>
 //                   <DropdownMenuItem onClick={() => navigate("/settings?tab=wishlist")} className="cursor-pointer gap-2">

@@ -1,9 +1,12 @@
+import { CLASS_OPTIONS } from "@/lib/catalog";
+
 const HEADER_MAP = {
   name: ["name", "student name", "full name", "student"],
   email: ["email", "e-mail", "mail", "email address"],
   password: ["password", "pass", "pwd", "temp password"],
-  status: ["status", "account status", "active"],
   date: ["date", "joined", "joined date", "join date", "enrollment date", "created"],
+  class: ["class", "class level", "grade", "standard"],
+  school: ["school", "school name", "institution", "college"],
 };
 
 function normalizeHeader(h) {
@@ -21,6 +24,28 @@ function findColumnKey(header) {
   return null;
 }
 
+function normalizeClassLevel(raw) {
+  const val = String(raw || "").trim();
+  if (!val) return "";
+
+  const direct = CLASS_OPTIONS.find(
+    (c) => c.toLowerCase() === val.toLowerCase()
+  );
+  if (direct) return direct;
+
+  const numMatch = val.match(/(\d{1,2})/);
+  if (numMatch) {
+    const n = Number(numMatch[1]);
+    if (n >= 1 && n <= 9) return `Class ${n}`;
+  }
+
+  return val;
+}
+
+function normalizeSchool(raw) {
+  return String(raw || "").trim();
+}
+
 function rowToStudent(row, colMap) {
   const get = (key) => {
     const idx = colMap[key];
@@ -34,8 +59,9 @@ function rowToStudent(row, colMap) {
     name: get("name"),
     email: get("email"),
     password: get("password"),
-    status: get("status"),
     date: get("date"),
+    classLevel: normalizeClassLevel(get("class")),
+    school: normalizeSchool(get("school")),
   };
 }
 
@@ -53,8 +79,9 @@ function parseRows(matrix) {
     colMap.name = 0;
     colMap.email = 1;
     colMap.password = 2;
-    colMap.status = 3;
-    colMap.date = 4;
+    colMap.date = 3;
+    colMap.class = 4;
+    colMap.school = 5;
   }
 
   const students = [];
@@ -127,9 +154,23 @@ export async function parseStudentSpreadsheet(file) {
 
 export async function downloadStudentTemplate() {
   const rows = [
-    ["name", "email", "password", "status", "date"],
-    ["Alex Johnson", "alex.student@example.com", "Student@123", "active", "2024-03-15"],
-    ["Priya Patel", "priya.student@example.com", "Student@123", "active", "2024-04-01"],
+    ["name", "email", "password", "date", "class", "school"],
+    [
+      "Alex Johnson",
+      "alex.student@gmail.com",
+      "Student@123",
+      "2024-03-15",
+      "Class 5",
+      "Example School",
+    ],
+    [
+      "Priya Patel",
+      "priya.student@gmail.com",
+      "Student@123",
+      "2024-04-01",
+      "Class 8",
+      "Example School",
+    ],
   ];
 
   try {

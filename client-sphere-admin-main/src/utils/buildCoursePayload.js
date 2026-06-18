@@ -1,5 +1,3 @@
-import { normalizeCourseLabels, parseCourseLabels } from "@/lib/courseLabels";
-
 /** Strip File blobs; keep only fields the API persists */
 export function buildCoursePayload(course) {
   const videos = (course.videos || [])
@@ -31,24 +29,16 @@ export function buildCoursePayload(course) {
         ]
       : [];
 
-  const labels = normalizeCourseLabels(
-    course.labels?.length ? course.labels : parseCourseLabels(course)
-  );
+  const classLevel = (course.classLevel || course.category || "").trim();
+  const subject = (course.subject || course.subCategory || course.sub_category || "").trim();
 
   return {
     title: course.title,
-    category: course.category,
-    subCategory: course.subCategory,
-    subject: course.subject,
-    classLevel: course.classLevel,
+    classLevel,
+    subject,
     instructor: course.instructor,
-    level: course.level,
-    labels,
     description: course.description,
     status: course.status || "Draft",
-    students: course.students || 0,
-    price: Number(course.price) || 0,
-    discountPercent: Number(course.discountPercent ?? course.discount_percent) || 0,
     thumbnail: course.thumbnail || null,
     videos,
     materials,

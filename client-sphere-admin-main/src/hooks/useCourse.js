@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { courseService } from "@/services/courseService";
-import { getCourses } from "@/utils/storage";
 
 export default function useCourse(id) {
   const [course, setCourse] = useState(null);
@@ -15,12 +14,8 @@ export default function useCourse(id) {
       const res = await courseService.getById(id);
       setCourse(res.data.course);
     } catch (err) {
-      const all = getCourses();
-      const found = all.find((c) => String(c.id) === String(id));
-      setCourse(found || null);
-      if (!found) {
-        setError(err.response?.data?.message || "Course not found");
-      }
+      setCourse(null);
+      setError(err.response?.data?.message || "Course not found");
     } finally {
       setLoading(false);
     }

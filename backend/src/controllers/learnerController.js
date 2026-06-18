@@ -1,36 +1,39 @@
 const { query } = require("../utils/dbQuery");
 const {
-  enrichCourse,
-  filterByLabel,
-  sortByNewest,
-} = require("../utils/courseLabels");
+  STUDENT_COUNT_SQL,
+  mapCourseRow,
+} = require("../utils/courseMapper");
 const {
   isUserEnrolled,
+  autoEnrollUser,
   mapVideoForAccess,
-  mapPricingFromRow,
   PREVIEW_LESSON_COUNT,
 } = require("../utils/enrollmentHelpers");
 
-const mapCourseRow = (row) =>
-  enrichCourse(
-    {
-      id: row.id,
-      title: row.title,
-      category: row.category,
-      subCategory: row.sub_category,
-      subject: row.subject,
-      classLevel: row.class_level,
-      instructor: row.instructor,
-      level: row.level,
-      description: row.description,
-      status: row.status,
-      students: row.students,
-      thumbnail: row.thumbnail,
-      createdAt: row.created_at,
-      ...mapPricingFromRow(row),
-    },
-    row
-  );
+const mapQuizQuestion = (q) => {
+  const options =
+    typeof q.options === "string" ? JSON.parse(q.options) : q.options || [];
+  const correctAnswers =
+    typeof q.correct_answers === "string"
+      ? JSON.parse(q.correct_answers)
+      : q.correct_answers;
+
+  return {
+    q: q.question,
+    type: q.question_type || "radio",
+    options,
+    correct: q.correct_index,
+    correctIndices: Array.isArray(correctAnswers)
+      ? correctAnswers
+      : q.question_type === "checkbox"
+        ? []
+        : undefined,
+    blankAnswer:
+      q.question_type === "fill_blank" && Array.isArray(correctAnswers)
+        ? correctAnswers[0] || ""
+        : "",
+  };
+};
 
 const mapVideoRow = (row) => ({
   title: row.title,
@@ -39,13 +42,23 @@ const mapVideoRow = (row) => ({
   uploadedAt: row.uploaded_at,
 });
 
-async function fetchActiveCourses() {
+async function fetchActiveCourses(classLevel = "") {
+  const params = [];
+  let classFilter = "";
+
+  if (classLevel) {
+    classFilter = " AND c.class_level = ?";
+    params.push(classLevel);
+  }
+
   const rows = await query(
     `SELECT c.*,
+      ${STUDENT_COUNT_SQL} AS student_count,
       (SELECT COUNT(*) FROM course_videos v WHERE v.course_id = c.id) AS video_count
      FROM courses c
-     WHERE c.status = 'Active'
-     ORDER BY c.id DESC`
+     WHERE c.status = 'Active'${classFilter}
+     ORDER BY c.id DESC`,
+    params
   );
 
   return rows.map((row) => {
@@ -54,7 +67,9 @@ async function fetchActiveCourses() {
       ...mapCourseRow(row),
       lessonCount: videoCount,
       lessons: videoCount,
-      reviews: row.students || 0,
+      topics: videoCount,
+      topicCount: videoCount,
+      reviews: Number(row.student_count) || 0,
       rating: 4.8,
     };
   });
@@ -62,10 +77,17 @@ async function fetchActiveCourses() {
 
 async function fetchCourseFullById(id, reqUser = null) {
   const courseRows = await query(
-    "SELECT * FROM courses WHERE id = ? AND status = 'Active' LIMIT 1",
+    `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count
+     FROM courses c
+     WHERE c.id = ? AND c.status = 'Active'
+     LIMIT 1`,
     [id]
   );
   if (!courseRows.length) return null;
+
+  if (reqUser) {
+    await autoEnrollUser(reqUser, id);
+  }
 
   const enrolled = reqUser ? await isUserEnrolled(reqUser, id) : false;
 
@@ -89,18 +111,13 @@ async function fetchCourseFullById(id, reqUser = null) {
   const quizzes = [];
   for (const quizRow of quizRows) {
     const questions = await query(
-      "SELECT question, options, correct_index FROM quiz_questions WHERE quiz_id = ? ORDER BY sort_order",
+      "SELECT question, question_type, options, correct_index, correct_answers FROM quiz_questions WHERE quiz_id = ? ORDER BY sort_order",
       [quizRow.id]
     );
 
     quizzes.push({
       quizTitle: quizRow.quiz_title,
-      questions: questions.map((q) => ({
-        q: q.question,
-        options:
-          typeof q.options === "string" ? JSON.parse(q.options) : q.options,
-        correct: q.correct_index,
-      })),
+      questions: questions.map(mapQuizQuestion),
     });
   }
 
@@ -129,6 +146,8 @@ async function fetchCourseFullById(id, reqUser = null) {
       : quizzes.map((q) => ({ ...q, locked: true })),
     lessonCount: videos.length,
     lessons: videos.length,
+    topics: videos.length,
+    topicCount: videos.length,
   };
 }
 
@@ -144,9 +163,10 @@ function scoreCourseForProfile(course, tokens) {
   const haystack = [
     course.title,
     course.description,
+    course.classLevel,
+    course.subject,
     course.category,
     course.subCategory,
-    course.subject,
   ]
     .filter(Boolean)
     .join(" ")
@@ -162,16 +182,10 @@ function pickRecommended(courses, bio = "") {
     .sort((a, b) => b.score - a.score || (b.course.students || 0) - (a.course.students || 0));
 
   const matched = scored.filter((s) => s.score > 0).map((s) => s.course);
-  const pool = matched.length ? matched : [...courses].sort((a, b) => (b.students || 0) - (a.students || 0));
+  const pool = matched.length
+    ? matched
+    : [...courses].sort((a, b) => (b.students || 0) - (a.students || 0));
   return pool.slice(0, 5);
-}
-
-function isAiRelated(course) {
-  const text = [course.title, course.description, course.category, course.subCategory]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return /\bai\b|artificial intelligence|machine learning|ml\b|data science/.test(text);
 }
 
 function pickBecauseViewed(courses, viewed) {
@@ -180,15 +194,25 @@ function pickBecauseViewed(courses, viewed) {
   const keywords = tokenize(viewed.title);
   let related = courses.filter((c) => String(c.id) !== String(viewed.id));
 
-  if (isAiRelated(viewed)) {
-    related = related.filter(isAiRelated);
-  } else if (keywords.length) {
+  if (keywords.length) {
     related = related.filter((c) => {
-      const hay = [c.title, c.description, c.category, c.subCategory].join(" ").toLowerCase();
+      const hay = [
+        c.title,
+        c.description,
+        c.classLevel,
+        c.subject,
+        c.category,
+        c.subCategory,
+      ]
+        .join(" ")
+        .toLowerCase();
       return keywords.some((k) => hay.includes(k));
     });
-  } else if (viewed.category) {
-    related = related.filter((c) => c.category === viewed.category);
+  } else if (viewed.classLevel || viewed.category) {
+    const viewedClass = viewed.classLevel || viewed.category;
+    related = related.filter(
+      (c) => (c.classLevel || c.category) === viewedClass
+    );
   }
 
   if (!related.length) return null;
@@ -199,10 +223,21 @@ function pickBecauseViewed(courses, viewed) {
   };
 }
 
-exports.getLearnerCourses = async (_req, res) => {
+async function getUserClassLevel(reqUser) {
+  if (!reqUser?.id) return "";
+
+  const rows = await query(
+    `SELECT class_level FROM users WHERE id = ? LIMIT 1`,
+    [reqUser.id]
+  );
+  return String(rows[0]?.class_level || "").trim();
+}
+
+exports.getLearnerCourses = async (req, res) => {
   try {
-    const courses = await fetchActiveCourses();
-    res.json({ courses });
+    const classLevel = await getUserClassLevel(req.user);
+    const courses = await fetchActiveCourses(classLevel);
+    res.json({ courses, classLevel });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to fetch courses" });
@@ -211,10 +246,18 @@ exports.getLearnerCourses = async (_req, res) => {
 
 exports.getLearnerCourseById = async (req, res) => {
   try {
+    const classLevel = await getUserClassLevel(req.user);
     const course = await fetchCourseFullById(req.params.id, req.user);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
+
+    if (classLevel && course.classLevel !== classLevel) {
+      return res.status(403).json({
+        message: "This course is not available for your class",
+      });
+    }
+
     res.json({ course });
   } catch (err) {
     console.error(err);
@@ -225,12 +268,11 @@ exports.getLearnerCourseById = async (req, res) => {
 exports.getLearnerDashboard = async (req, res) => {
   try {
     const { lastViewedCourseId } = req.query;
-    const courses = await fetchActiveCourses();
+    const classLevel = await getUserClassLevel(req.user);
+    const courses = await fetchActiveCourses(classLevel);
 
-    const profileTable =
-      req.user.authProvider === "google" ? "google_users" : "users";
     const profileRows = await query(
-      `SELECT bio FROM ${profileTable} WHERE id = ? LIMIT 1`,
+      `SELECT bio FROM users WHERE id = ? LIMIT 1`,
       [req.user.id]
     );
     const bio = profileRows[0]?.bio || "";
@@ -242,27 +284,20 @@ exports.getLearnerDashboard = async (req, res) => {
         (await fetchCourseFullById(lastViewedCourseId));
     }
 
-    const recommendedTagged = filterByLabel(courses, "Recommended");
-    const recommended =
-      recommendedTagged.length > 0
-        ? recommendedTagged.slice(0, 5)
-        : pickRecommended(courses, bio);
-
+    const recommended = pickRecommended(courses, bio);
     const becauseViewed = pickBecauseViewed(courses, viewed);
 
-    const trendingTagged = filterByLabel(courses, "Trending");
-    const trending =
-      trendingTagged.length > 0
-        ? trendingTagged.slice(0, 5)
-        : [...courses]
-            .sort((a, b) => (b.students || 0) - (a.students || 0))
-            .slice(0, 5);
+    const trending = [...courses]
+      .sort((a, b) => (b.students || 0) - (a.students || 0))
+      .slice(0, 5);
 
-    const featuredTagged = filterByLabel(courses, "Popular");
-    const featured =
-      featuredTagged.length > 0
-        ? featuredTagged.slice(0, 5)
-        : sortByNewest(courses, 5);
+    const featured = [...courses]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime()
+      )
+      .slice(0, 5);
 
     res.json({
       recommended,

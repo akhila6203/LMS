@@ -2,8 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import {
-  Shield, User, Palette, LogOut,
-  Heart, ShoppingCart, Trash2, X
+  User, Palette, LogOut, Trash2,
 } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../components/ui/card";
@@ -25,20 +24,16 @@ import { CourseCard } from "./CourseCard";
 import { isLearnerLoggedIn } from "../../utils/userStore";
 
 import { mapPublicCourseForCard } from "@/utils/mapPublicCourse";
-// import { syncWishlistFromServer } from "@/services/wishlistService";
-import { wishlistService } from "@/services/wishlistService";
 
-// import { getLearningProgress } from "../../utils/userStore";
 import MyLearning from "./MyLearning";
 import { PageWithFooter } from "@/components/layout/PageWithFooter";
 import { Textarea } from "../../components/ui/textarea";
 import { toast } from "sonner";
 import {
-  userProfileService,
   fetchUserProfile,
   saveUserProfile,
 } from "@/services/userProfileService";
-import { getSessionUser } from "@/utils/authSession";
+import { getSessionUser, clearAuthSession } from "@/utils/authSession";
 import { compressImageFile } from "@/utils/compressImage";
 
 // const emptyProfileForm = () => ({
@@ -53,6 +48,8 @@ const emptyProfileForm = () => ({
   email: "",
   bio: "",
   avatar: null,
+  school: "",
+  classLevel: "",
 });
 
 export default function SettingsPage() {
@@ -61,10 +58,6 @@ export default function SettingsPage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileLoadError, setProfileLoadError] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordSaving, setPasswordSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +73,8 @@ export default function SettingsPage() {
           email: profile.email || "",
           bio: profile.bio || "",
           avatar: profile.avatar || null,
+          school: profile.school || "",
+          classLevel: profile.classLevel || "",
         }));
       } catch (err) {
         if (cancelled) return;
@@ -130,58 +125,15 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState(getTabFromURL());
 
-  const [wishlistCourses, setWishlistCourses] = useState([]);
-  const [wishlistLoading, setWishlistLoading] = useState(false);
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     let tab = params.get("tab") || "profile";
-    if (tab === "notifications") {
+    if (tab === "notifications" || tab === "security") {
       tab = "profile";
       navigate("/settings?tab=profile", { replace: true });
     }
     setActiveTab(tab);
   }, [location.search, navigate]);
-
-  // const loadWishlist = async () => {
-  //   setWishlistLoading(true);
-  //   try {
-  //     if (isLearnerLoggedIn()) {
-  //       const { courses } = await syncWishlistFromServer();
-  //       setWishlistCourses(courses.map(mapPublicCourseForCard));
-  //     } else {
-  //       setWishlistCourses(resolveWishlistCourses());
-  //     }
-  //   } catch {
-  //     setWishlistCourses(resolveWishlistCourses());
-  //   } finally {
-  //     setWishlistLoading(false);
-  //   }
-  // };
-  const loadWishlist = async () => {
-  setWishlistLoading(true);
-
-  try {
-    if (!isLearnerLoggedIn()) {
-      setWishlistCourses([]);
-      return;
-    }
-
-    const res = await wishlistService.getAll();
-    setWishlistCourses((res.data.courses || []).map(mapPublicCourseForCard));
-  } catch {
-    setWishlistCourses([]);
-  } finally {
-    setWishlistLoading(false);
-  }
-};
-
-  useEffect(() => {
-    if (activeTab !== "wishlist") return;
-    loadWishlist();
-  }, [activeTab]);
-
-  
 
 const handleAvatarChange = async (e) => {
   const file = e.target.files?.[0];
@@ -197,42 +149,39 @@ const handleAvatarChange = async (e) => {
 
   return (
     <PageWithFooter variant="user">
-    <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 w-full py-4">
-
-      <div className="w-full lg:w-[240px] space-y-2 flex lg:block overflow-x-auto lg:overflow-visible">
-  {[
-    { id: "profile", label: "Profile", icon: User },
-    { id: "learning", label: "My Learning", icon: User },
-    { id: "wishlist", label: "Wishlist", icon: Heart },
-    // { id: "cart", label: "Cart", icon: ShoppingCart },
-    { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "security", label: "Security", icon: Shield },
-  ].map((item) => {
-    const Icon = item.icon;
-    return (
-      <button
-        key={item.id}
-        // onClick={() => setActiveTab(item.id)}
-        onClick={() => {
-          setActiveTab(item.id);
-          navigate(`/settings?tab=${item.id}`);
+    <div className="mx-auto max-w-7xl px-4 py-4 space-y-4 sm:space-y-6 sm:px-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) => {
+          setActiveTab(tab);
+          navigate(`/settings?tab=${tab}`);
         }}
-        className={`min-w-[140px] lg:w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap
-          ${activeTab === item.id
-            ? "bg-primary text-white"
-            : "hover:bg-muted"
-          }`}
+        className="w-full"
       >
-        <Icon className="h-4 w-4" />
-        {item.label}
-      </button>
-    );
-  })}
-</div>   {/* ✅ CLOSE SIDEBAR HERE */}
+        <div className="border-b overflow-x-auto">
+          <TabsList className="flex h-auto w-max min-w-full justify-start gap-1 bg-transparent p-0 rounded-none">
+            {[
+              { id: "profile", label: "Profile", icon: User },
+              { id: "learning", label: "My Learning", icon: User },
+              { id: "appearance", label: "Appearance", icon: Palette },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <TabsTrigger
+                  key={item.id}
+                  value={item.id}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 border-transparent rounded-none bg-transparent shadow-none data-[state=active]:border-primary data-[state=active]:text-primary data-[state=inactive]:text-muted-foreground hover:text-foreground whitespace-nowrap"
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
 
-      <div className="flex-1 space-y-4 sm:space-y-6">
-
-         {activeTab === "profile" && (
+        <div className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
+         <TabsContent value="profile" className="mt-0">
           <Card>
             <CardHeader>
               <CardTitle>Profile</CardTitle>
@@ -253,7 +202,7 @@ const handleAvatarChange = async (e) => {
                 <Avatar className="h-16 w-16">
                   {user.avatar && <AvatarImage src={user.avatar} />}
                   <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-bold">
-                    {user.name.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase()}
+                    {(user.name || "U").split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
 
@@ -309,6 +258,16 @@ const handleAvatarChange = async (e) => {
                     onChange={(e) => setUser({ ...user, email: e.target.value })}
                   />
                 </div>
+
+                <div>
+                  <Label>School</Label>
+                  <Input value={user.school || "—"} readOnly disabled />
+                </div>
+
+                <div>
+                  <Label>Class</Label>
+                  <Input value={user.classLevel || "—"} readOnly disabled />
+                </div>
               </div>
 
               <div>
@@ -351,53 +310,34 @@ const handleAvatarChange = async (e) => {
                   {profileSaving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
+
+              <Separator />
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium">Sign out from this device</p>
+                  <p className="text-xs text-muted-foreground">
+                    You sign in with Google. Sign out to switch accounts.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    clearAuthSession();
+                    navigate("/", { replace: true });
+                  }}
+                >
+                  <LogOut className="h-4 w-4" /> Sign out
+                </Button>
+              </div>
               </>
               )}
 
             </CardContent>
           </Card>
-    )}
+         </TabsContent>
 
-    {activeTab === "wishlist" && (
-      // <TabsContent value="wishlist">
-  <Card className="border-border/60">
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Heart className="h-4 w-4 text-primary" /> My wishlist
-      </CardTitle>
-      <CardDescription>Courses you've saved for later.</CardDescription>
-    </CardHeader>
-
-    <CardContent>
-      {wishlistLoading ? (
-        <p className="text-sm text-muted-foreground">Loading wishlist...</p>
-      ) : wishlistCourses.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center">
-          <p className="text-sm text-muted-foreground">Wishlist is empty</p>
-
-          <Button asChild className="mt-4">
-            <Link to="/courses">Browse courses</Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {wishlistCourses.map((c) => (
-            <CourseCard
-              key={c.id}
-              course={c}
-              onWishlistChange={() => loadWishlist()}
-            />
-          ))}
-        </div>
-      )}
-    </CardContent>
-  </Card>
-// </TabsContent>
-    )}
-
-    
-
-    {activeTab === "appearance" && (
+    <TabsContent value="appearance" className="mt-0">
   <Card className="border-border/60">
     <CardHeader>
       <CardTitle>Appearance</CardTitle>
@@ -436,119 +376,13 @@ const handleAvatarChange = async (e) => {
       </div>
     </CardContent>
   </Card>
-// </TabsContent>
+    </TabsContent>
 
-    )}
-
-    {activeTab === "security" && (
-      // <TabsContent value="security">
-  <Card className="border-border/60">
-    <CardHeader>
-      <CardTitle>Security</CardTitle>
-      <CardDescription>Keep your account safe.</CardDescription>
-    </CardHeader>
-
-    <CardContent className="space-y-5">
-      
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Current password</Label>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-          />
+      <TabsContent value="learning" className="mt-0">
+        <MyLearning embedded />
+      </TabsContent>
         </div>
-        <div className="space-y-1.5">
-          <Label>New password</Label>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Confirm password</Label>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button
-          disabled={passwordSaving}
-          onClick={async () => {
-            if (!currentPassword || !newPassword || !confirmPassword) {
-              toast.error("Fill all password fields");
-              return;
-            }
-            if (newPassword !== confirmPassword) {
-              toast.error("Passwords do not match");
-              return;
-            }
-            setPasswordSaving(true);
-            try {
-              await userProfileService.changePassword({
-                currentPassword,
-                newPassword,
-                confirmPassword,
-              });
-              setCurrentPassword("");
-              setNewPassword("");
-              setConfirmPassword("");
-              toast.success("Password updated");
-            } catch (err) {
-              toast.error(
-                err.response?.data?.message || "Could not update password"
-              );
-            } finally {
-              setPasswordSaving(false);
-            }
-          }}
-        >
-          {passwordSaving ? "Updating..." : "Update password"}
-        </Button>
-      </div>
-
-      <Separator />
-
-      {/* Logout Section */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-medium">
-            Sign out from this device
-          </p>
-          <p className="text-xs text-muted-foreground">
-            You'll need to sign in again next time.
-          </p>
-        </div>
-
-        <Button
-          variant="outline"
-          onClick={() => navigate("/login")}
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </Button>
-      </div>
-
-    </CardContent>
-  </Card>
-// </TabsContent>
-    )}
-
-    {/*  my learning page */}
-
-      {activeTab === "learning" && (
-        <MyLearning/>
-      )}
-      </div>
+      </Tabs>
     </div>
     </PageWithFooter>
   );

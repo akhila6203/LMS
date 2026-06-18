@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Step1 from "./Step1BasicInfo";
 import Step2 from "./Step2Videos";
@@ -16,31 +16,10 @@ export default function CourseDrawer({
   initialData = {},
 }) {
   const navigate = useNavigate();
-  const [courseData, setCourseData] = useState(initialData || {});
+  const [courseData, setCourseData] = useState(() => initialData || {});
   const [saving, setSaving] = useState(false);
-  const DRAFT_KEY = "course_draft";
-
-  useEffect(() => {
-    const savedDraft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
-    if (savedDraft && Object.keys(savedDraft).length > 0) {
-      setCourseData(savedDraft);
-    } else {
-      setCourseData(initialData || {});
-    }
-  }, [initialData]);
 
   const handleNext = async (stepData) => {
-    const mergedVideos =
-      stepData.videos !== undefined ? stepData.videos : courseData.videos || [];
-    const mergedMaterials =
-      stepData.materials !== undefined
-        ? stepData.materials
-        : courseData.materials || [];
-    const mergedQuizzes =
-      stepData.quizzes !== undefined
-        ? stepData.quizzes
-        : courseData.quizzes || [];
-
     const updated = {
       ...courseData,
       ...stepData,
@@ -48,13 +27,21 @@ export default function CourseDrawer({
         stepData.thumbnail !== undefined
           ? stepData.thumbnail
           : courseData.thumbnail,
-      videos: mergedVideos,
-      materials: mergedMaterials,
-      quizzes: mergedQuizzes,
+      videos:
+        stepData.videos !== undefined
+          ? stepData.videos
+          : courseData.videos || [],
+      materials:
+        stepData.materials !== undefined
+          ? stepData.materials
+          : courseData.materials || [],
+      quizzes:
+        stepData.quizzes !== undefined
+          ? stepData.quizzes
+          : courseData.quizzes || [],
     };
 
     setCourseData(updated);
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(updated));
 
     if (step === 6) {
       setSaving(true);
@@ -64,15 +51,21 @@ export default function CourseDrawer({
           status: stepData.status || updated.status || "Draft",
         });
 
-        await courseService.create(payload);
+        const res = await courseService.create(payload);
 
-        localStorage.removeItem(DRAFT_KEY);
         alert("Course saved to database successfully!");
-        navigate("/courses");
+        const newId = res?.data?.course?.id;
+        if (newId) {
+          navigate(`/admin/courses/${newId}`);
+        } else {
+          navigate("/courses");
+        }
       } catch (error) {
+        const detail = error.response?.data?.error;
         alert(
-          error.response?.data?.message ||
-            "Failed to save course. Check MySQL is running and tables exist."
+          (error.response?.data?.message ||
+            "Failed to save course. Check MySQL is running and tables exist.") +
+            (detail ? `\n\nDetails: ${detail}` : "")
         );
       } finally {
         setSaving(false);

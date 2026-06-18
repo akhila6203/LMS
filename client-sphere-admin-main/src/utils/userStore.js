@@ -1,4 +1,4 @@
-import { getSessionUser } from "./authSession";
+import { getAuthToken, getSessionUser } from "./authSession";
 // import { catalog } from "@/lib/catalog";
 // import { getDiscountPercent, normalizeCoursePricing } from "@/utils/coursePricing";
 // import { publicCourseService } from "@/services/publicCourseService";
@@ -33,7 +33,7 @@ export const CART_CHANGED_EVENT = "lms-cart-changed";
 
 export function isLearnerLoggedIn() {
   const user = getSessionUser();
-  return Boolean(localStorage.getItem("token") && user?.role === "user");
+  return Boolean(getAuthToken() && user?.role === "user");
 }
 
 /** Name/email from login session only — avatar/bio come from API in Settings/header. */

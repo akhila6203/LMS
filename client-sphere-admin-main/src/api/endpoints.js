@@ -46,24 +46,17 @@ HOME_VIDEO: {
     BASE: "/students",
     BULK_IMPORT: "/students/bulk-import",
     INVITE: "/students/invite",
+    byId: (id) => `/students/${id}`,
+  },
+  SCHOOLS: {
+    BASE: "/schools",
+  },
+  VOCABULARY: {
+    LOOKUP: "/vocabulary/lookup",
   },
   USER_PROFILE: {
     ME: "/user/profile/me",
     PASSWORD: "/user/profile/password",
-  },
-  WISHLIST: {
-    BASE: "/user/wishlist",
-    byId: (id) => `/user/wishlist/${id}`,
-  },
-  CART: {
-   BASE: "/cart",
-   byCourse: (courseId) => `/cart/${courseId}`,
-},
-  ORDERS: {
-    BASE: "/orders",
-    MY: "/orders/my",
-    ADMIN: "/orders/admin",
-    verify: (id) => `/orders/${id}/verify`,
   },
   ENROLLMENTS: {
     MY_COURSES: "/learner/enrollments/my-courses",

@@ -1,9 +1,6 @@
 const { query } = require("./dbQuery");
 
-const PREVIEW_LESSON_COUNT = 4;
-
-const accountTypeFromUser = (user) =>
-  user?.authProvider === "google" ? "google" : "password";
+const PREVIEW_LESSON_COUNT = 1;
 
 const mapVideoForAccess = (row, index, enrolled) => ({
   title: row.title,
@@ -17,51 +14,56 @@ const mapVideoForAccess = (row, index, enrolled) => ({
 
 async function isUserEnrolled(user, courseId) {
   if (!user?.id) return false;
-  const accountType = accountTypeFromUser(user);
   const rows = await query(
     `SELECT id, status FROM course_enrollments
-     WHERE user_id = ? AND account_type = ? AND course_id = ?
+     WHERE user_id = ? AND course_id = ?
        AND status IN ('active', 'completed')
      LIMIT 1`,
-    [user.id, accountType, courseId]
+    [user.id, courseId]
   );
   return rows.length > 0;
 }
 
 async function getEnrollment(user, courseId) {
   if (!user?.id) return null;
-  const accountType = accountTypeFromUser(user);
   const rows = await query(
     `SELECT * FROM course_enrollments
-     WHERE user_id = ? AND account_type = ? AND course_id = ?
+     WHERE user_id = ? AND course_id = ?
      LIMIT 1`,
-    [user.id, accountType, courseId]
+    [user.id, courseId]
   );
   return rows[0] || null;
 }
 
-function lineTotal(price, discountPercent) {
-  const p = Number(price) || 0;
-  const d = Math.min(100, Math.max(0, Number(discountPercent) || 0));
-  return Math.round(p * (1 - d / 100) * 100) / 100;
-}
+async function autoEnrollUser(user, courseId) {
+  if (!user?.id) return false;
 
-function mapPricingFromRow(row) {
-  const price = Number(row.price) || 0;
-  const discountPercent = Number(row.discount_percent) || 0;
-  return {
-    price,
-    discountPercent,
-    finalPrice: lineTotal(price, discountPercent),
-  };
+  const existing = await getEnrollment(user, courseId);
+  if (existing && ["active", "completed"].includes(existing.status)) {
+    return true;
+  }
+
+  if (existing) {
+    await query(
+      `UPDATE course_enrollments SET status = 'active' WHERE id = ?`,
+      [existing.id]
+    );
+    return true;
+  }
+
+  await query(
+    `INSERT INTO course_enrollments (user_id, course_id, status, enrolled_at)
+     VALUES (?, ?, 'active', NOW())`,
+    [user.id, courseId]
+  );
+
+  return true;
 }
 
 module.exports = {
   PREVIEW_LESSON_COUNT,
-  accountTypeFromUser,
   mapVideoForAccess,
   isUserEnrolled,
   getEnrollment,
-  lineTotal,
-  mapPricingFromRow,
+  autoEnrollUser,
 };

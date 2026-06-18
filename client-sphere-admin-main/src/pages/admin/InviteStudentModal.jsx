@@ -2,10 +2,14 @@ import { useState } from "react";
 import { studentService } from "@/services/studentService";
 import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import ClassSelect from "@/components/admin/ClassSelect";
+import SchoolSelect from "@/components/admin/SchoolSelect";
 
 export default function InviteStudentModal({ onClose, onSuccess }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [classLevel, setClassLevel] = useState("");
+  const [school, setSchool] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -21,11 +25,23 @@ export default function InviteStudentModal({ onClose, onSuccess }) {
       setLoading(false);
       return;
     }
+    if (!classLevel) {
+      toast.error("Please select a class");
+      setLoading(false);
+      return;
+    }
+    if (!school) {
+      toast.error("Please select a school");
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await studentService.invite(
-        [{ name: name.trim(), email: email.trim().toLowerCase() }],
-        message
+        [{ name: name.trim(), email: email.trim().toLowerCase(), classLevel, school }],
+        message,
+        classLevel,
+        school
       );
       setResults(res.data);
       toast.success(res.data.message || "Invite created");
@@ -78,6 +94,9 @@ export default function InviteStudentModal({ onClose, onSuccess }) {
               required
             />
           </div>
+
+          <ClassSelect value={classLevel} onChange={setClassLevel} label="Class" />
+          <SchoolSelect value={school} onChange={setSchool} label="School" />
 
           <div>
             <label className="text-sm font-medium">Message (optional)</label>

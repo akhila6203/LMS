@@ -2,10 +2,10 @@ const { query } = require("./dbQuery");
 
 const isGoogleAuth = (reqUser) => reqUser?.authProvider === "google";
 
-const accountMeta = (reqUser) =>
-  isGoogleAuth(reqUser)
-    ? { table: "google_users", profileTable: "google_student_profiles" }
-    : { table: "users", profileTable: "student_profiles" };
+const accountMeta = () => ({
+  table: "users",
+  profileTable: "student_profiles",
+});
 
 const toPublicUser = (row, authProvider) => ({
   id: row.id,
@@ -13,6 +13,8 @@ const toPublicUser = (row, authProvider) => ({
   email: row.email,
   role: "user",
   status: row.status,
+  classLevel: row.class_level || "",
+  school: row.school || "",
   google_login: authProvider === "google" || !!row.google_login,
   authProvider,
 });

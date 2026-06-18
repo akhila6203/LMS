@@ -54,67 +54,43 @@ import {
 import { getSessionUser } from "@/utils/authSession";
 import { compressImageFile } from "@/utils/compressImage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PasswordInput } from "@/components/ui/password-input";
 
 /* ================= MAIN ================= */
 export default function SettingsPage() {
- const sidebarItem =
-  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition w-full justify-start " +
-  "hover:bg-gray-100 " +
-  "data-[state=active]:bg-primary data-[state=active]:text-white";
+  const tabItem =
+    "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors " +
+    "border-b-2 border-transparent rounded-none bg-transparent shadow-none " +
+    "data-[state=active]:border-primary data-[state=active]:text-primary " +
+    "data-[state=inactive]:text-muted-foreground hover:text-foreground";
 
   return (
-    <div className="space-y-6 mt-14">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6">
+      <Tabs defaultValue="profile" className="w-full">
+        <div className="border-b overflow-x-auto">
+          <TabsList className="flex h-auto w-max min-w-full justify-start gap-1 bg-transparent p-0 rounded-none">
+            <TabsTrigger value="profile" className={tabItem}>
+              <User className="h-4 w-4 shrink-0" /> Profile
+            </TabsTrigger>
+            <TabsTrigger value="security" className={tabItem}>
+              <Shield className="h-4 w-4 shrink-0" /> Security
+            </TabsTrigger>
+            <TabsTrigger value="appearance" className={tabItem}>
+              <Palette className="h-4 w-4 shrink-0" /> Appearance
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-      <Tabs defaultValue="profile" className="flex items-start">
+        <div className="pt-6">
+          <p className="text-lg font-semibold mb-4">
+            Manage your workspace, profile and platform preferences.
+          </p>
 
-  {/* 🔥 LEFT SIDEBAR */}
-  <div className="w-[240px] pr-8 sticky  top-18 pt-20 h-fit">
-
-    <TabsList className="flex flex-col gap-2 bg-transparent p-0">
-
-      <TabsTrigger value="profile" className={sidebarItem}>
-        <User className="h-4 w-4" /> Profile
-      </TabsTrigger>
-
-      {/* <TabsTrigger value="workspace" className={sidebarItem}>
-        <Globe className="h-4 w-4" /> Workspace
-      </TabsTrigger> */}
-
-      <TabsTrigger value="security" className={sidebarItem}>
-        <Shield className="h-4 w-4" /> Security
-      </TabsTrigger>
-
-      <TabsTrigger value="appearance" className={sidebarItem}>
-        <Palette className="h-4 w-4" /> Appearance
-      </TabsTrigger>
-
-      {/* <TabsTrigger value="integrations" className={sidebarItem}>
-        <Plug className="h-4 w-4" /> Integrations
-      </TabsTrigger> */}
-
-    </TabsList>
-
-  </div>
-
-  {/* 🔥 MIDDLE VERTICAL LINE */}
-  <div className="w-px bg-gray-200 mx-4"></div>
-
-  {/* 🔥 RIGHT CONTENT */}
-  <div className="flex-1 pl-2">
-
-    <p className="text-lg font-semibold ">
-      Manage your workspace, profile and platform preferences.
-    </p>
-
-    <TabsContent value="profile"><ProfileSection /></TabsContent>
-    {/* <TabsContent value="workspace"><WorkspaceSection /></TabsContent> */}
-    <TabsContent value="security"><SecuritySection /></TabsContent>
-    <TabsContent value="appearance"><AppearanceSection /></TabsContent>
-    {/* <TabsContent value="integrations"><IntegrationsSection /></TabsContent> */}
-
-  </div>
-
-</Tabs>
+          <TabsContent value="profile" className="mt-0"><ProfileSection /></TabsContent>
+          <TabsContent value="security" className="mt-0"><SecuritySection /></TabsContent>
+          <TabsContent value="appearance" className="mt-0"><AppearanceSection /></TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 }
@@ -542,8 +518,7 @@ function SecuritySection() {
 
           <div className="grid gap-2 sm:col-span-2">
             <Label>Current password</Label>
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="••••••••"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
@@ -552,8 +527,7 @@ function SecuritySection() {
 
           <div className="grid gap-2">
             <Label>New password</Label>
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="••••••••"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -562,8 +536,7 @@ function SecuritySection() {
 
           <div className="grid gap-2">
             <Label>Confirm new password</Label>
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -574,7 +547,7 @@ function SecuritySection() {
       </SectionCard>
 
       {/* TWO FACTOR */}
-      <SectionCard
+      {/* <SectionCard
         title="Two-factor authentication"
         description="Add a second layer of security with an authenticator app."
       >
@@ -613,10 +586,10 @@ function SecuritySection() {
             Manage
           </Button>
         </div>
-      </SectionCard>
+      </SectionCard> */}
 
       {/* DANGER ZONE */}
-      <SectionCard
+      {/* <SectionCard
         title="Danger zone"
         description="Irreversible and destructive actions."
       >
@@ -634,7 +607,7 @@ function SecuritySection() {
           </Button>
 
         </div>
-      </SectionCard>
+      </SectionCard> */}
 
     </div>
   );

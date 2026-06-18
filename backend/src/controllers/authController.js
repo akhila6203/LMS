@@ -8,13 +8,15 @@ const sanitizeUser = (user) => ({
   email: user.email,
   role: "user",
   status: user.status,
+  classLevel: user.class_level || "",
+  school: user.school || "",
   google_login: !!user.google_login,
   authProvider: "password",
 });
 
 /**
  * Email + password login for rows in `users` (admin-created / invited students).
- * Disabled on route — learners use Google Sign-In (`google_users` table) instead.
+ * Disabled on route — learners use Google Sign-In (`users` table) instead.
  * Admin login remains in adminAuthController → `admins` table.
  */
 exports.loginUser = (req, res) => {

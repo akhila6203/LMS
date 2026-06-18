@@ -9,7 +9,7 @@ const MAX_AVATAR_LENGTH = 800000;
 
 const dbErrorMessage = (err) => {
   if (err?.code === "ER_BAD_FIELD_ERROR") {
-    return "Database missing columns. Run database/users.sql and database/google_users.sql.";
+    return "Database missing columns. Run database/users.sql and database/cleanup.sql.";
   }
   return err?.message || "Database error";
 };
@@ -20,6 +20,8 @@ const toProfile = (row, reqUser) => ({
   email: row.email || "",
   bio: row.bio || "",
   avatar: row.avatar || null,
+  classLevel: row.class_level || "",
+  school: row.school || "",
   google_login: isGoogleAuth(reqUser) || !!row.google_login,
   role: "user",
   status: row.status,
@@ -28,9 +30,9 @@ const toProfile = (row, reqUser) => ({
 
 exports.getProfile = async (req, res) => {
   try {
-    const { table } = accountMeta(req.user);
+    const { table } = accountMeta();
     const rows = await query(
-      `SELECT id, name, email, bio, avatar, status
+      `SELECT id, name, email, bio, avatar, status, class_level, school
        FROM ${table} WHERE id = ? LIMIT 1`,
       [req.user.id]
     );
@@ -66,7 +68,7 @@ exports.updateProfile = async (req, res) => {
   }
 
   try {
-    const { table } = accountMeta(req.user);
+    const { table } = accountMeta();
 
     const duplicate = await query(
       `SELECT id FROM ${table} WHERE email = ? AND id != ? LIMIT 1`,
@@ -82,15 +84,6 @@ exports.updateProfile = async (req, res) => {
     );
     if (adminEmail.length) {
       return res.status(409).json({ message: "Email already registered as admin" });
-    }
-
-    const otherTable = table === "google_users" ? "users" : "google_users";
-    const otherDup = await query(
-      `SELECT id FROM ${otherTable} WHERE email = ? LIMIT 1`,
-      [normalizedEmail]
-    );
-    if (otherDup.length) {
-      return res.status(409).json({ message: "Email already in use" });
     }
 
     await query(

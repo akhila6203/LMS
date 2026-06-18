@@ -1,12 +1,5 @@
-import { useState, useEffect } from "react";
-import {
-  CATEGORIES,
-  CATEGORY_TABS,
-  CLASS_OPTIONS,
-  SUBJECT_OPTIONS,
-} from "@/lib/catalog";
-import { normalizeCourseLabels, parseCourseLabels } from "@/lib/courseLabels";
-import CourseLabelCheckboxes from "./CourseLabelCheckboxes";
+import { useState, useEffect, useMemo } from "react";
+import { CLASS_OPTIONS, getSubjectsForClass } from "@/lib/catalog";
 
 const OTHERS = "__others__";
 
@@ -21,7 +14,6 @@ function SelectWithOther({
 }) {
   const valueIsCustom = Boolean(value) && !options.includes(value);
   const [othersMode, setOthersMode] = useState(valueIsCustom);
-  
 
   useEffect(() => {
     if (value && !options.includes(value)) {
@@ -82,66 +74,23 @@ function SelectWithOther({
 export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
   const [form, setForm] = useState({
     title: "",
-    category: "",
-    subCategory: "",
-    subject: "",
     classLevel: "",
+    subject: "",
     instructor: "",
-    level: "Beginner",
-    labels: ["Beginner"],
     description: "",
-    status: "Pending",
-    students: 0,
-    price: 0,
-    discountPercent: 0,
     thumbnail: null,
   });
 
   const [overview, setOverview] = useState(data.overview || [""]);
-  const categoryOptions = CATEGORIES.filter((c) => c !== "All");
-  const categoryFromList = categoryOptions.includes(form.category);
-  const subCategoryOptions =
-    categoryFromList && CATEGORY_TABS[form.category]
-      ? CATEGORY_TABS[form.category]
-      : [];
-
-  const handleCategoryChange = (category) => {
-    setForm((prev) => {
-      const prevFromList = categoryOptions.includes(prev.category);
-      const nextFromList = categoryOptions.includes(category);
-      const resetSub =
-        (nextFromList && category !== prev.category) ||
-        prevFromList !== nextFromList;
-
-      return {
-        ...prev,
-        category,
-        subCategory: resetSub ? "" : prev.subCategory,
-      };
-    });
-  };
 
   useEffect(() => {
     if (data) {
       setForm({
         title: data.title || "",
-        category: data.category || "",
-        subCategory: data.subCategory || data.sub_category || "",
-        subject: data.subject || "",
-        classLevel: data.classLevel || "",
+        classLevel: data.classLevel || data.category || "",
+        subject: data.subject || data.subCategory || data.sub_category || "",
         instructor: data.instructor || "",
-        level: data.level || "Beginner",
-        labels: (() => {
-          const parsed = parseCourseLabels(data);
-          if (parsed.length) return parsed;
-          if (data.level) return [data.level];
-          return ["Beginner"];
-        })(),
         description: data.description || "",
-        status: data.status || "Pending",
-        students: data.students || 0,
-        price: data.price ?? 0,
-        discountPercent: data.discountPercent ?? data.discount_percent ?? 0,
         thumbnail: data.thumbnail || null,
       });
       setOverview(data.overview?.length ? data.overview : [""]);
@@ -150,22 +99,45 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
 
   const patch = (fields) => setForm((prev) => ({ ...prev, ...fields }));
 
+  const subjectOptions = useMemo(
+    () => getSubjectsForClass(form.classLevel),
+    [form.classLevel]
+  );
+
+  const handleClassChange = (classLevel) => {
+    const nextSubjects = getSubjectsForClass(classLevel);
+    const keepSubject = nextSubjects.includes(form.subject);
+    patch({
+      classLevel,
+      subject: keepSubject ? form.subject : "",
+    });
+  };
+
   const handleSubmit = () => {
     if (!form.title.trim()) {
       alert("Course title is required");
       return;
     }
-    const labels = normalizeCourseLabels(form.labels);
+    if (!form.classLevel.trim()) {
+      alert("Class is required");
+      return;
+    }
+    if (!form.subject.trim()) {
+      alert("Subject is required");
+      return;
+    }
+
+    const classLevel = form.classLevel.trim();
+    const subject = form.subject.trim();
+
     onNext({
       ...form,
-      labels,
+      classLevel,
+      subject,
+      category: classLevel,
+      subCategory: subject,
       overview: overview.filter((x) => x.trim()),
-      category: form.category.trim(),
-      subCategory: form.subCategory.trim(),
-      classLevel: form.classLevel.trim(),
-      subject: form.subject.trim(),
     });
-    
   };
 
   return (
@@ -174,7 +146,7 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold">Create a new course</h1>
           <p className="text-gray-500 text-sm">
-            Enter course details shown to students in your LMS.
+            Enter class details shown to students in your LMS.
           </p>
         </div>
       )}
@@ -184,7 +156,7 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
           <div>
             <h2 className="font-semibold text-lg">Course details</h2>
             <p className="text-sm text-gray-500">
-              Category, class, subject, and basic information.
+              Class, subject, and basic information.
             </p>
           </div>
         )}
@@ -194,7 +166,7 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
           <input
             value={form.title}
             onChange={(e) => patch({ title: e.target.value })}
-            placeholder="e.g. Advanced React Patterns"
+            placeholder="e.g. Class 5 Mathematics — Fractions"
             className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
@@ -221,35 +193,9 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <SelectWithOther
-            label="Category"
-            value={form.category}
-            onValueChange={handleCategoryChange}
-            options={categoryOptions}
-            emptyLabel="Select category"
-            otherPlaceholder="Enter category name"
-          />
-
-          <SelectWithOther
-            key={`sub-${form.category || "none"}`}
-            label="Sub category"
-            value={form.subCategory}
-            onValueChange={(subCategory) => patch({ subCategory })}
-            options={subCategoryOptions}
-            disabled={!form.category?.trim()}
-            emptyLabel={
-              categoryFromList
-                ? "Select sub category"
-                : "Select or choose Others"
-            }
-            otherPlaceholder="Enter sub category name"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <SelectWithOther
             label="Class"
             value={form.classLevel}
-            onValueChange={(classLevel) => patch({ classLevel })}
+            onValueChange={handleClassChange}
             options={CLASS_OPTIONS}
             emptyLabel="Select class"
             otherPlaceholder="Enter class / grade"
@@ -259,75 +205,16 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
             label="Subject"
             value={form.subject}
             onValueChange={(subject) => patch({ subject })}
-            options={SUBJECT_OPTIONS}
-            emptyLabel="Select subject"
+            options={subjectOptions}
+            disabled={!form.classLevel.trim()}
+            emptyLabel={form.classLevel ? "Select subject" : "Select class first"}
             otherPlaceholder="Enter subject name"
           />
         </div>
 
-        <CourseLabelCheckboxes
-          value={form.labels}
-          onChange={(labels) => patch({ labels: normalizeCourseLabels(labels) })}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Price (₹)</label>
-            <input
-              type="number"
-              min={0}
-              value={form.price}
-              onChange={(e) => patch({ price: Number(e.target.value) })}
-              className="w-full border rounded-lg px-4 py-2"
-              placeholder="999"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Discount (%)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={form.discountPercent}
-              onChange={(e) => patch({ discountPercent: Number(e.target.value) })}
-              className="w-full border rounded-lg px-4 py-2"
-              placeholder="10"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Students</label>
-            <input
-              type="number"
-              value={form.students}
-              onChange={(e) => patch({ students: Number(e.target.value) })}
-              className="w-full border rounded-lg px-4 py-2"
-              placeholder="0"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Status</label>
-          <div className="flex gap-4">
-            {["Active", "Pending", "Blocked"].map((s) => (
-              <label key={s} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="status"
-                  value={s}
-                  checked={form.status === s}
-                  onChange={(e) => patch({ status: e.target.value })}
-                  className="accent-blue-600"
-                />
-                {s}
-              </label>
-            ))}
-          </div>
-        </div>
-
         <div>
           <label className="block text-sm font-medium mb-2">
-            Course Thumbnail
+            Class Thumbnail
           </label>
           <input
             type="file"

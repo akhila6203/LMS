@@ -2,12 +2,15 @@ import { useState } from "react";
 import { studentService } from "@/services/studentService";
 import { toast } from "sonner";
 import { Copy } from "lucide-react";
+import ClassSelect from "@/components/admin/ClassSelect";
+import SchoolSelect from "@/components/admin/SchoolSelect";
 
 export default function AddStudentModal({ onClose, onSuccess }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState("active");
+  const [classLevel, setClassLevel] = useState("");
+  const [school, setSchool] = useState("");
   const [loading, setLoading] = useState(false);
   const [credentials, setCredentials] = useState(null);
 
@@ -17,6 +20,14 @@ export default function AddStudentModal({ onClose, onSuccess }) {
       toast.error("Name and email are required");
       return;
     }
+    if (!classLevel) {
+      toast.error("Please select a class");
+      return;
+    }
+    if (!school.trim()) {
+      toast.error("Please select or enter a school name");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -24,7 +35,8 @@ export default function AddStudentModal({ onClose, onSuccess }) {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password: password.trim() || undefined,
-        status,
+        classLevel,
+        school: school.trim(),
       });
       setCredentials(res.data.credentials);
       toast.success("Student added to users table");
@@ -73,6 +85,8 @@ export default function AddStudentModal({ onClose, onSuccess }) {
                 required
               />
             </div>
+            <ClassSelect value={classLevel} onChange={setClassLevel} />
+            <SchoolSelect value={school} onChange={setSchool} />
             <div>
               <label className="text-sm text-gray-600">Password (optional)</label>
               <input
@@ -82,17 +96,6 @@ export default function AddStudentModal({ onClose, onSuccess }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-            </div>
-            <div>
-              <label className="text-sm text-gray-600">Status</label>
-              <select
-                className="w-full border rounded-lg px-3 py-2 mt-1"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="active">active</option>
-                <option value="inactive">inactive</option>
-              </select>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={onClose} disabled={loading}>

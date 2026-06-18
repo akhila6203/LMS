@@ -1,99 +1,38 @@
 const { query } = require("../utils/dbQuery");
-const { enrichCourse } = require("../utils/courseLabels");
+const { STUDENT_COUNT_SQL, mapCourseRow } = require("../utils/courseMapper");
+const { PREVIEW_LESSON_COUNT } = require("../utils/enrollmentHelpers");
 const {
-  accountTypeFromUser,
-  mapPricingFromRow,
-  PREVIEW_LESSON_COUNT,
-} = require("../utils/enrollmentHelpers");
-
-const mapCourseRow = (row) => {
-  const pricing = mapPricingFromRow(row);
-  return enrichCourse(
-    {
-      id: row.id,
-      title: row.title,
-      category: row.category,
-      subCategory: row.sub_category,
-      instructor: row.instructor,
-      level: row.level,
-      description: row.description,
-      thumbnail: row.thumbnail,
-      students: row.students,
-      createdAt: row.created_at,
-      ...pricing,
-    },
-    row
-  );
-};
-
-async function getProgressForEnrollment(enrollmentId, courseId) {
-  const videos = await query(
-    "SELECT id, title, duration, sort_order FROM course_videos WHERE course_id = ? ORDER BY sort_order",
-    [courseId]
-  );
-  const materials = await query(
-    "SELECT id, title FROM course_materials WHERE course_id = ? ORDER BY sort_order",
-    [courseId]
-  );
-  const quizzes = await query(
-    "SELECT id, quiz_title FROM course_quizzes WHERE course_id = ? ORDER BY id",
-    [courseId]
-  );
-
-  const doneRows = await query(
-    "SELECT lesson_key, lesson_type FROM course_lesson_progress WHERE enrollment_id = ?",
-    [enrollmentId]
-  );
-  const doneSet = new Set(doneRows.map((r) => r.lesson_key));
-
-  let videosDone = 0;
-  let materialsDone = 0;
-
-  videos.forEach((v, i) => {
-    const key = `video:${v.id || i + 1}`;
-    if (doneSet.has(key) || doneSet.has(`video:${i + 1}`)) videosDone += 1;
-  });
-  materials.forEach((m, i) => {
-    const key = `material:${m.id || i + 1}`;
-    if (doneSet.has(key) || doneSet.has(`material:${i + 1}`)) materialsDone += 1;
-  });
-
-  const contentUnits = videos.length + materials.length;
-  const completedContent = videosDone + materialsDone;
-  const percent =
-    contentUnits > 0
-      ? Math.min(100, Math.round((completedContent / contentUnits) * 100))
-      : 0;
-
-  const courseComplete =
-    videos.length === videosDone &&
-    materials.length === materialsDone &&
-    contentUnits > 0;
-  const quizDone = doneSet.has("quiz:all");
-
-  return {
-    totalUnits: contentUnits,
-    completedUnits: completedContent,
-    percent: quizDone ? 100 : percent,
-    courseComplete,
-    quizDone,
-    videosCount: videos.length,
-    materialsCount: materials.length,
-    quizzesCount: quizzes.length,
-  };
-}
+  getProgressForEnrollment,
+  syncStudentProfileProgress,
+  getUserClassLevel,
+} = require("../utils/progressHelpers");
 
 exports.getMyCourses = async (req, res) => {
   try {
-    const accountType = accountTypeFromUser(req.user);
+    const classLevel = await getUserClassLevel(req.user.id);
+    const classParams = [];
+    let classFilter = "";
+
+    if (classLevel) {
+      classFilter = " AND c.class_level = ?";
+      classParams.push(classLevel);
+    }
+
+    const classCourses = await query(
+      `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count
+       FROM courses c
+       WHERE c.status = 'Active'${classFilter}
+       ORDER BY c.subject ASC, c.title ASC`,
+      classParams
+    );
 
     const enrollments = await query(
-      `SELECT e.*, c.title, c.category, c.thumbnail, c.instructor, c.price, c.discount_percent, c.labels, c.level
-       FROM course_enrollments e
-       JOIN courses c ON c.id = e.course_id
-       WHERE e.user_id = ? AND account_type = ?
-       ORDER BY e.purchased_at DESC`,
-      [req.user.id, accountType]
+      `SELECT e.* FROM course_enrollments e
+       WHERE e.user_id = ? AND e.status IN ('active', 'completed')`,
+      [req.user.id]
+    );
+    const enrollmentByCourse = new Map(
+      enrollments.map((e) => [e.course_id, e])
     );
 
     const courses = [];
@@ -101,32 +40,56 @@ exports.getMyCourses = async (req, res) => {
     let totalHours = 0;
     let totalDays = 0;
 
-    for (const row of enrollments) {
-      const progress = await getProgressForEnrollment(row.id, row.course_id);
-      const status =
-        row.status === "completed" || (progress.quizDone && progress.courseComplete)
-          ? "completed"
-          : "pending";
+    for (const row of classCourses) {
+      const enrollment = enrollmentByCourse.get(row.id);
+      let progress = {
+        percent: 0,
+        completedUnits: 0,
+        totalUnits: 0,
+        courseComplete: false,
+        quizDone: false,
+      };
+      let status = "pending";
 
-      if (status === "completed") completedCount += 1;
+      if (enrollment) {
+        progress = await getProgressForEnrollment(enrollment.id, row.id);
+        status =
+          enrollment.status === "completed" ||
+          (progress.quizDone && progress.courseComplete)
+            ? "completed"
+            : progress.completedUnits > 0
+              ? "active"
+              : "pending";
 
-      const started = row.started_at || row.purchased_at;
-      const ended = row.quiz_completed_at || row.completed_at;
-      if (started && ended) {
-        const days = Math.max(
-          1,
-          Math.ceil((new Date(ended) - new Date(started)) / (1000 * 60 * 60 * 24))
+        if (status === "completed") completedCount += 1;
+
+        const started = enrollment.started_at || enrollment.enrolled_at;
+        const ended = enrollment.quiz_completed_at || enrollment.completed_at;
+        if (started && ended) {
+          const days = Math.max(
+            1,
+            Math.ceil((new Date(ended) - new Date(started)) / (1000 * 60 * 60 * 24))
+          );
+          totalDays += days;
+        }
+      } else {
+        const units = await query(
+          `SELECT
+            (SELECT COUNT(*) FROM course_videos WHERE course_id = ?) +
+            (SELECT COUNT(*) FROM course_materials WHERE course_id = ?) AS total`,
+          [row.id, row.id]
         );
-        totalDays += days;
+        progress.totalUnits = Number(units[0]?.total) || 0;
       }
 
       totalHours += progress.completedUnits * 0.5;
 
       courses.push({
-        enrollmentId: row.id,
-        courseId: row.course_id,
+        enrollmentId: enrollment?.id || null,
+        courseId: row.id,
         title: row.title,
-        category: row.category,
+        category: row.class_level,
+        subCategory: row.subject,
         thumbnail: row.thumbnail,
         instructor: row.instructor,
         ...mapCourseRow(row),
@@ -136,19 +99,23 @@ exports.getMyCourses = async (req, res) => {
         courseComplete: progress.courseComplete,
         quizDone: progress.quizDone,
         status,
-        purchasedAt: row.purchased_at,
-        startedAt: row.started_at,
-        completedAt: row.completed_at,
-        quizCompletedAt: row.quiz_completed_at,
+        enrolledAt: enrollment?.enrolled_at || null,
+        startedAt: enrollment?.started_at || null,
+        completedAt: enrollment?.completed_at || null,
+        quizCompletedAt: enrollment?.quiz_completed_at || null,
+        quizScore: enrollment?.quiz_score ?? null,
+        quizTotal: enrollment?.quiz_total ?? null,
       });
     }
 
-    const enrolled = courses.length;
+    const enrolled = courses.filter((c) => c.enrollmentId).length;
+    const started = courses.filter((c) => c.startedAt || c.completedUnits > 0).length;
     const avgDays =
       completedCount > 0 ? Math.round(totalDays / completedCount) : 0;
 
     res.json({
       stats: {
+        started,
         enrolled,
         completed: completedCount,
         hoursLearned: Math.round(totalHours),
@@ -167,7 +134,6 @@ exports.markLessonProgress = async (req, res) => {
   try {
     const { courseId } = req.params;
     const { lessonKey, lessonType = "video" } = req.body;
-    const accountType = accountTypeFromUser(req.user);
 
     if (!lessonKey) {
       return res.status(400).json({ message: "lessonKey is required" });
@@ -175,9 +141,9 @@ exports.markLessonProgress = async (req, res) => {
 
     const enrollments = await query(
       `SELECT id, started_at FROM course_enrollments
-       WHERE user_id = ? AND account_type = ? AND course_id = ?
+       WHERE user_id = ? AND course_id = ?
          AND status IN ('active', 'completed') LIMIT 1`,
-      [req.user.id, accountType, courseId]
+      [req.user.id, courseId]
     );
 
     if (!enrollments.length) {
@@ -209,6 +175,8 @@ exports.markLessonProgress = async (req, res) => {
       );
     }
 
+    await syncStudentProfileProgress(req.user.id);
+
     res.json({ progress });
   } catch (err) {
     console.error(err);
@@ -219,13 +187,34 @@ exports.markLessonProgress = async (req, res) => {
 exports.completeQuiz = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const accountType = accountTypeFromUser(req.user);
+    const scoreRaw = req.body?.score;
+    const totalRaw = req.body?.total;
+
+    const score =
+      scoreRaw !== undefined && scoreRaw !== null && scoreRaw !== ""
+        ? Math.max(0, parseInt(scoreRaw, 10))
+        : null;
+    const total =
+      totalRaw !== undefined && totalRaw !== null && totalRaw !== ""
+        ? Math.max(0, parseInt(totalRaw, 10))
+        : null;
+
+    if (
+      score === null ||
+      total === null ||
+      Number.isNaN(score) ||
+      Number.isNaN(total) ||
+      total <= 0 ||
+      score > total
+    ) {
+      return res.status(400).json({ message: "Valid quiz score and total are required" });
+    }
 
     const enrollments = await query(
       `SELECT id FROM course_enrollments
-       WHERE user_id = ? AND account_type = ? AND course_id = ?
+       WHERE user_id = ? AND course_id = ?
          AND status IN ('active', 'completed') LIMIT 1`,
-      [req.user.id, accountType, courseId]
+      [req.user.id, courseId]
     );
 
     if (!enrollments.length) {
@@ -251,12 +240,15 @@ exports.completeQuiz = async (req, res) => {
 
     await query(
       `UPDATE course_enrollments
-       SET quiz_completed_at = NOW(), completed_at = NOW(), status = 'completed'
+       SET quiz_completed_at = NOW(), completed_at = NOW(), status = 'completed',
+           quiz_score = ?, quiz_total = ?
        WHERE id = ?`,
-      [enrollmentId]
+      [score, total, enrollmentId]
     );
 
-    res.json({ message: "Quiz completed", status: "completed" });
+    await syncStudentProfileProgress(req.user.id);
+
+    res.json({ message: "Quiz completed", status: "completed", score, total });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to complete quiz" });
@@ -266,11 +258,10 @@ exports.completeQuiz = async (req, res) => {
 exports.deleteEnrollment = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const accountType = accountTypeFromUser(req.user);
 
     await query(
-      "DELETE FROM course_enrollments WHERE user_id = ? AND account_type = ? AND course_id = ?",
-      [req.user.id, accountType, courseId]
+      "DELETE FROM course_enrollments WHERE user_id = ? AND course_id = ?",
+      [req.user.id, courseId]
     );
 
     res.json({ message: "Removed from my courses" });
@@ -282,37 +273,45 @@ exports.deleteEnrollment = async (req, res) => {
 
 exports.getRecommended = async (req, res) => {
   try {
-    const accountType = accountTypeFromUser(req.user);
-
     const enrolled = await query(
-      "SELECT course_id FROM course_enrollments WHERE user_id = ? AND account_type = ?",
-      [req.user.id, accountType]
+      "SELECT course_id FROM course_enrollments WHERE user_id = ?",
+      [req.user.id]
     );
     const enrolledIds = new Set(enrolled.map((e) => e.course_id));
 
     const enrolledCourses = await query(
-      `SELECT category, sub_category, subject FROM courses
+      `SELECT class_level, subject FROM courses
        WHERE id IN (${enrolled.length ? enrolled.map((e) => e.course_id).join(",") : "0"})`
     );
 
-    const categories = [...new Set(enrolledCourses.map((c) => c.category).filter(Boolean))];
+    const classLevels = [
+      ...new Set(enrolledCourses.map((c) => c.class_level).filter(Boolean)),
+    ];
 
     let recommended = [];
-    if (categories.length) {
-      const placeholders = categories.map(() => "?").join(",");
+    if (classLevels.length) {
+      const placeholders = classLevels.map(() => "?").join(",");
       recommended = await query(
-        `SELECT * FROM courses WHERE status = 'Active' AND category IN (${placeholders})
-         ORDER BY students DESC LIMIT 8`,
-        categories
+        `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count
+         FROM courses c
+         WHERE c.status = 'Active' AND c.class_level IN (${placeholders})
+         ORDER BY student_count DESC LIMIT 8`,
+        classLevels
       );
     } else {
       recommended = await query(
-        "SELECT * FROM courses WHERE status = 'Active' ORDER BY students DESC LIMIT 8"
+        `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count
+         FROM courses c
+         WHERE c.status = 'Active'
+         ORDER BY student_count DESC LIMIT 8`
       );
     }
 
     const popular = await query(
-      "SELECT * FROM courses WHERE status = 'Active' ORDER BY students DESC LIMIT 8"
+      `SELECT c.*, ${STUDENT_COUNT_SQL} AS student_count
+       FROM courses c
+       WHERE c.status = 'Active'
+       ORDER BY student_count DESC LIMIT 8`
     );
 
     const mapList = (rows) =>

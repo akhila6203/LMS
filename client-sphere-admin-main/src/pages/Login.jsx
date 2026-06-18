@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { GoogleLogin } from "@react-oauth/google";
 import { FcGoogle } from "react-icons/fc";
 import { Sparkles, Shield } from "lucide-react";
 import login from "../assets/photos/login.jpg";
 import { authService } from "@/services/authService";
-import { setSessionUser } from "@/utils/authSession";
+import { setSessionUser, getSessionUser, setAuthToken } from "@/utils/authSession";
+import { isPublicOnlyPath } from "@/utils/publicRoutes";
 
 const passwordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -136,7 +137,7 @@ function UserGoogleSignIn({ onSuccess, loading, googleWrapRef, inviteEmail }) {
             Welcome, learner
           </h2>
           <p className="text-sm text-slate-500">
-            Sign in with any Google account to continue
+            Sign in with your admin-registered Gmail account
           </p>
         </div>
       </div>
@@ -148,7 +149,7 @@ function UserGoogleSignIn({ onSuccess, loading, googleWrapRef, inviteEmail }) {
         </li>
         <li className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-          New users are registered automatically
+          Only Gmail accounts added by admin can sign in
         </li>
       </ul>
 
@@ -193,6 +194,7 @@ function UserGoogleSignIn({ onSuccess, loading, googleWrapRef, inviteEmail }) {
 }
 
 export default function Login() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loginType, setLoginType] = useState(
     searchParams.get("type") === "admin" ? "admin" : "user"
@@ -211,6 +213,12 @@ export default function Login() {
   useEffect(() => {
     setLoginType(searchParams.get("type") === "admin" ? "admin" : "user");
   }, [searchParams]);
+
+  useEffect(() => {
+    const session = getSessionUser();
+    if (!session?.id) return;
+    navigate("/dashboard", { replace: true });
+  }, [navigate]);
 
   const validateAdmin = () => {
     const newErrors = {};
@@ -237,14 +245,16 @@ export default function Login() {
 
   const redirectAfterAuth = (user) => {
     const redirect = searchParams.get("redirect");
+    const decodedRedirect = redirect ? decodeURIComponent(redirect) : null;
     const safeRedirect =
-      redirect && !redirect.startsWith("/login")
-        ? decodeURIComponent(redirect)
+      decodedRedirect &&
+      !decodedRedirect.startsWith("/login") &&
+      !isPublicOnlyPath(decodedRedirect)
+        ? decodedRedirect
         : null;
     const isAdminUser = user?.role === "admin";
-    window.location.href = isAdminUser
-      ? "/dashboard"
-      : safeRedirect || "/dashboard";
+    const target = isAdminUser ? "/dashboard" : safeRedirect || "/dashboard";
+    navigate(target, { replace: true });
   };
 
   const handleAdminLogin = async (e) => {
@@ -257,7 +267,7 @@ export default function Login() {
         email: adminForm.email,
         password: adminForm.password,
       });
-      localStorage.setItem("token", res.data.token);
+      setAuthToken(res.data.token);
       setSessionUser(res.data.user);
       redirectAfterAuth(res.data.user);
     } catch (error) {
@@ -274,7 +284,7 @@ export default function Login() {
         token: credentialResponse.credential,
         inviteToken,
       });
-      localStorage.setItem("token", res.data.token);
+      setAuthToken(res.data.token);
       setSessionUser(res.data.user);
       redirectAfterAuth(res.data.user);
     } catch (error) {

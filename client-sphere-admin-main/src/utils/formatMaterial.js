@@ -18,6 +18,13 @@ export function timeAgo(date) {
   return "Just now";
 }
 
+export function formatAddedAgo(date) {
+  if (!date) return "Added recently";
+  const ago = timeAgo(date);
+  if (ago === "Just now") return "Added just now";
+  return `Added ${ago}`;
+}
+
 export function normalizeMaterialType(type) {
   const map = {
     PDF: "PDF",

@@ -3,10 +3,8 @@ import {
   Search,
   Upload,
   FileText,
-  FileImage,
   FileVideo,
   FileSpreadsheet,
-  Link2,
   MoreVertical,
   Download,
   Trash2,
@@ -15,6 +13,8 @@ import {
   FolderOpen,
   HardDrive,
   Loader2,
+  GraduationCap,
+  BookOpen,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,10 @@ import {
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { CATEGORIES, CATEGORY_TABS } from "@/lib/catalog";
+import {
+  MATERIAL_CLASS_OPTIONS,
+  getSubjectsForClass,
+} from "@/lib/catalog";
 import { courseService } from "@/services/courseService";
 import { materialService } from "@/services/materialService";
 import { uploadService } from "@/services/uploadService";
@@ -63,20 +66,16 @@ import { toast } from "sonner";
 const typeMeta = {
   PDF: { icon: FileText, tint: "bg-rose-500/10 text-rose-600", ring: "ring-rose-500/20" },
   Doc: { icon: FileSpreadsheet, tint: "bg-sky-500/10 text-sky-600", ring: "ring-sky-500/20" },
-  Slides: { icon: FileText, tint: "bg-amber-500/10 text-amber-600", ring: "ring-amber-500/20" },
   Video: { icon: FileVideo, tint: "bg-violet-500/10 text-violet-600", ring: "ring-violet-500/20" },
-  Image: { icon: FileImage, tint: "bg-emerald-500/10 text-emerald-600", ring: "ring-emerald-500/20" },
-  Link: { icon: Link2, tint: "bg-indigo-500/10 text-indigo-600", ring: "ring-indigo-500/20" },
 };
 
 const TYPE_TO_BACKEND = {
   PDF: "PDF",
   Doc: "DOC",
-  Slides: "PPT",
   Video: "Video",
-  Image: "Image",
-  Link: "Link",
 };
+
+const ALLOWED_TYPES = ["PDF", "Doc", "Video"];
 
 export default function MaterialsPage() {
   const [items, setItems] = useState([]);
@@ -85,6 +84,8 @@ export default function MaterialsPage() {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
+  const [subjectFilter, setSubjectFilter] = useState("all");
   const [open, setOpen] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -119,9 +120,44 @@ export default function MaterialsPage() {
   );
 
   const publishedItems = useMemo(
-    () => items.filter((m) => publishedCourseIds.has(String(m.courseId))),
+    () =>
+      items.filter(
+        (m) =>
+          publishedCourseIds.has(String(m.courseId)) &&
+          ALLOWED_TYPES.includes(normalizeMaterialType(m.type))
+      ),
     [items, publishedCourseIds]
   );
+
+  const classOptions = useMemo(() => {
+    const set = new Set(
+      publishedItems.map((m) => m.classLevel || m.category).filter(Boolean)
+    );
+    return [...set].sort();
+  }, [publishedItems]);
+
+  const subjectOptions = useMemo(() => {
+    const set = new Set(
+      publishedItems
+        .filter((m) => {
+          if (classFilter === "all") return true;
+          return (m.classLevel || m.category) === classFilter;
+        })
+        .map((m) => m.subject || m.subCategory)
+        .filter(Boolean)
+    );
+    return [...set].sort();
+  }, [publishedItems, classFilter]);
+
+  const topicOptions = useMemo(() => {
+    return publishedCourses.filter((c) => {
+      const courseClass = c.classLevel || c.category || "";
+      const courseSubject = c.subject || c.subCategory || "";
+      if (classFilter !== "all" && courseClass !== classFilter) return false;
+      if (subjectFilter !== "all" && courseSubject !== subjectFilter) return false;
+      return true;
+    });
+  }, [publishedCourses, classFilter, subjectFilter]);
 
   const filtered = useMemo(() => {
     return publishedItems.filter((m) => {
@@ -134,17 +170,23 @@ export default function MaterialsPage() {
       const matchTab = tab === "all" || displayType === tab;
       const matchCourse =
         courseFilter === "all" || String(m.courseId) === courseFilter;
+      const matchClass =
+        classFilter === "all" ||
+        (m.classLevel || m.category) === classFilter;
+      const matchSubject =
+        subjectFilter === "all" ||
+        (m.subject || m.subCategory) === subjectFilter;
 
-      return matchQuery && matchTab && matchCourse;
+      return matchQuery && matchTab && matchCourse && matchClass && matchSubject;
     });
-  }, [publishedItems, query, tab, courseFilter]);
+  }, [publishedItems, query, tab, courseFilter, classFilter, subjectFilter]);
 
   const stats = useMemo(() => {
     return {
       total: publishedItems.length,
       videos: publishedItems.filter((m) => normalizeMaterialType(m.type) === "Video").length,
       docs: publishedItems.filter((m) =>
-        ["PDF", "Doc", "Slides"].includes(normalizeMaterialType(m.type))
+        ["PDF", "Doc"].includes(normalizeMaterialType(m.type))
       ).length,
     };
   }, [publishedItems]);
@@ -161,7 +203,7 @@ export default function MaterialsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 px-3 py-3 sm:px-4 sm:py-4">
       <div className="flex justify-between items-start gap-4">
         <div>
           <p className="text-sm text-gray-500">
@@ -211,10 +253,7 @@ export default function MaterialsPage() {
                 { label: "All", value: "all" },
                 { label: "PDFs", value: "PDF" },
                 { label: "Docs", value: "Doc" },
-                { label: "Slides", value: "Slides" },
                 { label: "Videos", value: "Video" },
-                { label: "Images", value: "Image" },
-                { label: "Links", value: "Link" },
               ].map((t) => (
                 <TabsTrigger
                   key={t.value}
@@ -227,20 +266,72 @@ export default function MaterialsPage() {
             </TabsList>
           </Tabs>
 
-          <div className="flex flex-col sm:flex-row gap-2 min-w-[280px]">
-            <Input
-              placeholder="Search by title or course..."
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 w-full lg:max-w-[700px]">
+          {/* <div className="flex flex-col sm:flex-row gap-2 min-w-[280px] flex-wrap"> */}
+            <Input 
+              className="w-full"
+              placeholder="Search by title or topic..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger>
-                <Filter className="h-4 w-4 mr-1" />
-                <SelectValue placeholder="All courses" />
+            <Select
+              value={classFilter}
+              onValueChange={(v) => {
+                setClassFilter(v);
+                setSubjectFilter("all");
+                setCourseFilter("all");
+              }}
+            >
+              <SelectTrigger 
+              // className="sm:w-[140px]"
+              className="w-full"
+              >
+                <GraduationCap className="h-4 w-4 mr-1 shrink-0" />
+                <SelectValue placeholder="All classes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All courses</SelectItem>
-                {publishedCourses.map((c) => (
+                <SelectItem value="all">All classes</SelectItem>
+                {classOptions.map((cls) => (
+                  <SelectItem key={cls} value={cls}>
+                    {cls}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={subjectFilter}
+              onValueChange={(v) => {
+                setSubjectFilter(v);
+                setCourseFilter("all");
+              }}
+            >
+              <SelectTrigger 
+              className="w-full"
+              // className="sm:w-[140px]"
+              >
+                <Filter className="h-4 w-4 mr-1 shrink-0" />
+                <SelectValue placeholder="All subjects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All subjects</SelectItem>
+                {subjectOptions.map((sub) => (
+                  <SelectItem key={sub} value={sub}>
+                    {sub}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={courseFilter} onValueChange={setCourseFilter}>
+              <SelectTrigger 
+              className="w-full"
+              // className="sm:w-[160px]"
+              >
+                <BookOpen className="h-4 w-4 mr-1 shrink-0" />
+                <SelectValue placeholder="All topics" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All topics</SelectItem>
+                {topicOptions.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
                     {c.title}
                   </SelectItem>
@@ -323,9 +414,11 @@ function MaterialCard({ item, onDelete }) {
 
         <h3 className="mt-3 font-medium break-words line-clamp-2">{item.title}</h3>
         <p className="text-xs text-gray-500 break-words line-clamp-1">{item.course}</p>
-        {(item.category || item.subCategory) && (
+        {(item.classLevel || item.subject || item.category || item.subCategory) && (
           <p className="text-xs text-gray-400 mt-1">
-            {[item.category, item.subCategory].filter(Boolean).join(" · ")}
+            {[item.classLevel || item.category, item.subject || item.subCategory]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         )}
 
@@ -343,33 +436,35 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
   const [type, setType] = useState("PDF");
   const [url, setUrl] = useState("");
   const [courseId, setCourseId] = useState("");
-  const [category, setCategory] = useState("");
-  const [subCategory, setSubCategory] = useState("");
+  const [classLevel, setClassLevel] = useState("");
+  const [subject, setSubject] = useState("");
   const [addToMatching, setAddToMatching] = useState(false);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  const categoryOptions = CATEGORIES.filter((c) => c !== "All");
-  const subCategoryOptions =
-    category && CATEGORY_TABS[category] ? CATEGORY_TABS[category] : [];
+  const subjectOptions = classLevel ? getSubjectsForClass(classLevel) : [];
 
   const filteredCourses = useMemo(() => {
     return courses.filter((c) => {
-      if (category && c.category !== category) return false;
-      if (subCategory && (c.subCategory || c.sub_category) !== subCategory) return false;
+      const courseClass = c.classLevel || c.category || "";
+      const courseSubject = c.subject || c.subCategory || c.sub_category || "";
+      if (classLevel && courseClass !== classLevel) return false;
+      if (subject && courseSubject !== subject) return false;
       return true;
     });
-  }, [courses, category, subCategory]);
+  }, [courses, classLevel, subject]);
 
   const resetForm = () => {
     setTitle("");
     setType("PDF");
     setUrl("");
     setCourseId("");
-    setCategory("");
-    setSubCategory("");
+    setClassLevel("");
+    setSubject("");
     setAddToMatching(false);
     setFile(null);
+    const fileInput = document.getElementById("materialFileUpload");
+    if (fileInput) fileInput.value = "";
   };
 
   const handleOpenChange = (next) => {
@@ -378,7 +473,6 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
   };
 
   const uploadFile = async () => {
-    if (type === "Link") return url.trim();
     if (!file) throw new Error("Please select a file to upload");
 
     const res =
@@ -395,14 +489,10 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
       return;
     }
     if (!addToMatching && !courseId) {
-      toast.error("Select a course or enable add to matching courses");
+      toast.error("Select a lesson or enable add to matching lessons");
       return;
     }
-    if (type === "Link" && !url.trim()) {
-      toast.error("URL is required for links");
-      return;
-    }
-    if (type !== "Link" && !file && !url.trim()) {
+    if (!file && !url.trim()) {
       toast.error("Upload a file or paste a URL");
       return;
     }
@@ -410,7 +500,7 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
     setUploading(true);
     try {
       let fileUrl = url.trim();
-      if (type !== "Link" && file) {
+      if (file) {
         fileUrl = await uploadFile();
       }
 
@@ -419,15 +509,15 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
         type: TYPE_TO_BACKEND[type] || type,
         url: fileUrl,
         courseId: addToMatching ? undefined : Number(courseId),
-        category: category || undefined,
-        subCategory: subCategory || undefined,
+        classLevel: classLevel || undefined,
+        subject: subject || undefined,
         addToMatching,
       });
 
       toast.success(
         addToMatching
-          ? "Added to all matching courses"
-          : "Material added to course"
+          ? "Added to all matching lessons"
+          : "Material added to lesson"
       );
       handleOpenChange(false);
       onSuccess?.();
@@ -441,10 +531,7 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
   const acceptMap = {
     PDF: ".pdf",
     Doc: ".doc,.docx,.xls,.xlsx,.zip",
-    Slides: ".ppt,.pptx",
     Video: "video/*",
-    Image: "image/*",
-    Link: "",
   };
 
   return (
@@ -459,8 +546,8 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
         <DialogHeader>
           <DialogTitle>Upload material</DialogTitle>
           <DialogDescription>
-            Upload PDF, video, image, slides, or link. It will be saved to the
-            selected course and shown in this library.
+            Upload PDF, Doc, or Video. Pick class, subject, and lesson — it will
+            be saved and shown in this library.
           </DialogDescription>
         </DialogHeader>
 
@@ -484,30 +571,27 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
                 <SelectContent>
                   <SelectItem value="PDF">PDF</SelectItem>
                   <SelectItem value="Doc">Doc</SelectItem>
-                  <SelectItem value="Slides">Slides</SelectItem>
                   <SelectItem value="Video">Video</SelectItem>
-                  <SelectItem value="Image">Image</SelectItem>
-                  <SelectItem value="Link">Link</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>Category</Label>
+              <Label>Class</Label>
               <Select
-                value={category || "none"}
+                value={classLevel || "none"}
                 onValueChange={(v) => {
-                  setCategory(v === "none" ? "" : v);
-                  setSubCategory("");
+                  setClassLevel(v === "none" ? "" : v);
+                  setSubject("");
                   setCourseId("");
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter courses" />
+                  <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Any category</SelectItem>
-                  {categoryOptions.map((c) => (
+                  <SelectItem value="none">Any class</SelectItem>
+                  {MATERIAL_CLASS_OPTIONS.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
@@ -519,21 +603,21 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Sub category</Label>
+              <Label>Subject</Label>
               <Select
-                value={subCategory || "none"}
+                value={subject || "none"}
                 onValueChange={(v) => {
-                  setSubCategory(v === "none" ? "" : v);
+                  setSubject(v === "none" ? "" : v);
                   setCourseId("");
                 }}
-                disabled={!category}
+                disabled={!classLevel}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter courses" />
+                  <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Any sub category</SelectItem>
-                  {subCategoryOptions.map((s) => (
+                  <SelectItem value="none">Any subject</SelectItem>
+                  {subjectOptions.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
@@ -543,17 +627,17 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
             </div>
 
             <div>
-              <Label>Course</Label>
+              <Label>Lesson</Label>
               <Select
                 value={courseId || "none"}
                 onValueChange={(v) => setCourseId(v === "none" ? "" : v)}
                 disabled={addToMatching}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select course" />
+                  <SelectValue placeholder="Select lesson" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Select course</SelectItem>
+                  <SelectItem value="none">Select lesson</SelectItem>
                   {filteredCourses.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.title}
@@ -571,20 +655,11 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
               onCheckedChange={(v) => setAddToMatching(Boolean(v))}
             />
             <Label htmlFor="addToMatching" className="text-sm font-normal cursor-pointer">
-              Add to all courses with same category & sub-category
+              Add to all lessons with same class & subject
             </Label>
           </div>
 
-          {type === "Link" ? (
-            <div className="space-y-2">
-              <Label>URL</Label>
-              <Input
-                value={url}
-                placeholder="https://..."
-                onChange={(e) => setUrl(e.target.value)}
-              />
-            </div>
-          ) : (
+          {(
             <>
               <div className="space-y-2">
                 <Label>File URL (optional if uploading)</Label>
@@ -602,7 +677,7 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
                 <Upload className="mx-auto mb-2 h-8 w-8 text-gray-400" />
                 <p className="font-medium">Click to upload file</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  PDF, Doc, Slides, Video, Image — up to 200 MB
+                  PDF, Doc, Video — up to 200 MB
                 </p>
                 <input
                   id="materialFileUpload"

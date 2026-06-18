@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "./api";
-import { clearAuthSession } from "@/utils/authSession";
+import { clearAuthSession, getAuthToken } from "@/utils/authSession";
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -10,7 +10,7 @@ const axiosClient = axios.create({
 });
 
 axiosClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
