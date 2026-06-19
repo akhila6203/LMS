@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import VideoPlayer from "@/pages/user/VideoPlayer";
-import { learnerCourseService } from "@/services/learnerCourseService";
+import { learnerClassService } from "@/services/learnerClassService";
 import { mapLearnerCourseDetail } from "@/utils/mapLearnerCourse";
 import { QuizRunner, sampleQuiz } from "@/pages/user/QuizRunner";
 
@@ -40,6 +40,7 @@ export default function CourseViewPage() {
   const [quizOpen, setQuizOpen] = useState(false);
   const [quizTitle, setQuizTitle] = useState("Module knowledge check");
   const [quizQuestions, setQuizQuestions] = useState(sampleQuiz);
+  const [activeQuizId, setActiveQuizId] = useState(null);
   const [progressInfo, setProgressInfo] = useState(null);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function CourseViewPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await learnerCourseService.getById(id);
+        const res = await learnerClassService.getById(id);
         if (cancelled) return;
         const mapped = mapLearnerCourseDetail(res.data.course);
         
@@ -67,7 +68,7 @@ export default function CourseViewPage() {
         );
 
         if (mapped.enrolled) {
-          enrollmentService.getMyCourses().then((res) => {
+          enrollmentService.getMyClasses().then((res) => {
             const row = (res.data.courses || []).find(
               (c) => String(c.courseId) === String(mapped.id)
             );
@@ -105,7 +106,7 @@ export default function CourseViewPage() {
     return (
       <div className="text-center py-20">
         <h2 className="text-xl font-semibold">Course not found</h2>
-        <Button onClick={() => navigate("/courses")} className="mt-4">
+        <Button onClick={() => navigate("/classes")} className="mt-4">
           Back to classes
         </Button>
       </div>
@@ -170,6 +171,7 @@ export default function CourseViewPage() {
       return;
     }
     setQuizTitle(qz.quizTitle || `Quiz ${i + 1}`);
+    setActiveQuizId(qz.id ?? null);
     setQuizQuestions(
       qz.questions?.length
         ? qz.questions
@@ -445,9 +447,23 @@ export default function CourseViewPage() {
         questions={quizQuestions}
         onComplete={async ({ score, total }) => {
           try {
-            await enrollmentService.completeQuiz(course.id, { score, total });
+            await enrollmentService.completeQuiz(course.id, {
+              score,
+              total,
+              quizId: activeQuizId,
+            });
             toast.success(`Quiz submitted! Score: ${score}/${total}`);
-            setProgressInfo((p) => ({ ...p, quizDone: true, percent: 100 }));
+            const myRes = await enrollmentService.getMyClasses();
+            const row = (myRes.data.courses || []).find(
+              (c) => String(c.courseId) === String(course.id)
+            );
+            if (row) {
+              setProgressInfo({
+                percent: row.progressPercent,
+                courseComplete: row.courseComplete,
+                quizDone: row.quizDone,
+              });
+            }
           } catch (err) {
             toast.error(
               err.response?.data?.message ||

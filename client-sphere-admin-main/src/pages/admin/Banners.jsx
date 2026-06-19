@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FaPlus } from "react-icons/fa";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ export default function AdminBanners() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [formKey, setFormKey] = useState(0);
   const fileInputRef = useRef(null);
 
@@ -42,30 +43,45 @@ export default function AdminBanners() {
   const handleOpenChange = (nextOpen) => {
     setOpen(nextOpen);
     if (!nextOpen) {
+      setEditing(null);
       resetFileInput();
     }
+  };
+
+  const openEdit = (banner) => {
+    setEditing(banner);
+    resetFileInput();
+    setOpen(true);
   };
 
   const submit = async (e) => {
     e.preventDefault();
 
-    if (!file) {
+    if (!editing && !file) {
       toast.error("Please select banner image");
       return;
     }
 
     const formData = new FormData();
-    formData.append("banner", file);
+    if (file) {
+      formData.append("banner", file);
+    }
 
     setLoading(true);
     try {
-      await bannerService.create(formData);
-      toast.success("Banner added");
+      if (editing) {
+        await bannerService.update(editing.id, formData);
+        toast.success("Banner updated");
+      } else {
+        await bannerService.create(formData);
+        toast.success("Banner added");
+      }
       resetFileInput();
       setOpen(false);
+      setEditing(null);
       load();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add banner");
+      toast.error(err.response?.data?.message || "Failed to save banner");
     } finally {
       setLoading(false);
     }
@@ -86,7 +102,11 @@ export default function AdminBanners() {
 
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setEditing(null);
+            resetFileInput();
+            setOpen(true);
+          }}
           className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-white shadow hover:bg-blue-700"
         >
           <FaPlus />
@@ -110,7 +130,16 @@ export default function AdminBanners() {
                 className="h-48 w-full object-cover"
                 alt=""
               />
-              <div className="flex justify-end p-3">
+              <div className="flex justify-end gap-1 p-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openEdit(b)}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -130,11 +159,21 @@ export default function AdminBanners() {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Add banner</DialogTitle>
+            <DialogTitle>{editing ? "Edit banner" : "Add banner"}</DialogTitle>
             <DialogDescription>
-              Choose an image to display on the homepage carousel.
+              {editing
+                ? "Replace the banner image or keep the current one."
+                : "Choose an image to display on the homepage carousel."}
             </DialogDescription>
           </DialogHeader>
+
+          {editing && (
+            <img
+              src={editing.image_url}
+              alt="Current banner"
+              className="h-40 w-full rounded-lg object-cover"
+            />
+          )}
 
           <form key={formKey} onSubmit={submit} className="space-y-4">
             <input
@@ -151,7 +190,9 @@ export default function AdminBanners() {
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No banner image selected
+                {editing
+                  ? "No new image selected — current banner will be kept"
+                  : "No banner image selected"}
               </p>
             )}
 
@@ -165,7 +206,11 @@ export default function AdminBanners() {
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Uploading..." : "Add Banner"}
+                {loading
+                  ? "Saving..."
+                  : editing
+                    ? "Save changes"
+                    : "Add Banner"}
               </Button>
             </DialogFooter>
           </form>

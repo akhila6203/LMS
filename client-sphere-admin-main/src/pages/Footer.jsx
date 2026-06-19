@@ -45,10 +45,10 @@ export default function Footer() {
           <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
             <li>
               <Link
-                to="/homecourses"
+                to="/homeclasses"
                 className="hover:text-foreground hover:underline"
               >
-                Browse courses
+                Browse classes
               </Link>
             </li>
             <li>
@@ -67,11 +67,11 @@ export default function Footer() {
               </a>
             </li>
             {/* <li>
-              <Link to="/homecourses">Browse Courses</Link>
+              <Link to="/homeclasses">Browse Classes</Link>
             </li>
 
             <li>
-              <Link to="/courses">My Courses</Link>
+              <Link to="/classes">My Classes</Link>
             </li>
 
             <li>

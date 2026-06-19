@@ -1,5 +1,5 @@
-const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
+const { setAuthCookie } = require("../utils/authCookie");
 const { query } = require("../utils/dbQuery");
 const { toPublicUser } = require("../utils/userAccounts");
 const { syncStudentProfileProgress } = require("../utils/progressHelpers");
@@ -29,6 +29,12 @@ exports.googleLogin = async (req, res) => {
   if (!googleClientId) {
     return res.status(500).json({
       message: "Google login is not configured (set GOOGLE_CLIENT_ID in backend .env)",
+    });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({
+      message: "Server auth is not configured (set JWT_SECRET in backend .env)",
     });
   }
 
@@ -113,8 +119,6 @@ exports.googleLogin = async (req, res) => {
       });
     }
 
-    const jwtSecret = process.env.JWT_SECRET || "lms_secret_key";
-
     let assignedClassLevel = "";
     let assignedSchool = "";
     if (invite?.class_level) {
@@ -133,6 +137,16 @@ exports.googleLogin = async (req, res) => {
 
     if (registeredRows.length) {
       user = registeredRows[0];
+
+      const subConflict = await query(
+        `SELECT id FROM users WHERE google_sub = ? AND id != ? LIMIT 1`,
+        [googleSub, user.id]
+      );
+      if (subConflict.length) {
+        return res.status(409).json({
+          message: "This Google account is already linked to another learner profile.",
+        });
+      }
 
       await query(
         `UPDATE users
@@ -170,6 +184,10 @@ exports.googleLogin = async (req, res) => {
       user = created[0];
     }
 
+    if (!user?.id) {
+      return res.status(500).json({ message: "Could not create or load user account" });
+    }
+
     await ensureStudentProfile(user.id);
     await syncStudentStats(user.id);
 
@@ -182,18 +200,36 @@ exports.googleLogin = async (req, res) => {
       );
     }
 
-    const jwtToken = jwt.sign(
-      { id: user.id, role: "user", authProvider: "google" },
-      jwtSecret,
-      { expiresIn: "7d" }
-    );
+    setAuthCookie(res, { id: user.id, role: "user", authProvider: "google" });
 
     return res.json({
-      token: jwtToken,
       user: toPublicUser(user, "google"),
     });
   } catch (error) {
     console.error("Google login error:", error);
-    return res.status(500).json({ message: "Google login failed" });
+
+    if (error.message?.includes("Wrong recipient") || error.message?.includes("audience")) {
+      return res.status(401).json({
+        message:
+          "Google token does not match server GOOGLE_CLIENT_ID. Use the same client ID in backend .env and frontend VITE_GOOGLE_CLIENT_ID.",
+      });
+    }
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        message: "This Google account is already linked to another learner profile.",
+      });
+    }
+
+    if (error.message?.includes("Unknown column")) {
+      return res.status(500).json({
+        message:
+          "Database schema is outdated. Restart the backend to run auto-migrations, or re-import database/schema.sql.",
+      });
+    }
+
+    return res.status(500).json({
+      message: error.message || "Google login failed",
+    });
   }
 };

@@ -56,7 +56,8 @@ async function fetchActiveCourses(classLevel = "") {
       ${STUDENT_COUNT_SQL} AS student_count,
       (SELECT COUNT(*) FROM course_videos v WHERE v.course_id = c.id) AS video_count
      FROM courses c
-     WHERE c.status = 'Active'${classFilter}
+     WHERE c.status = 'Active'
+       AND EXISTS (SELECT 1 FROM course_videos v WHERE v.course_id = c.id)${classFilter}
      ORDER BY c.id DESC`,
     params
   );
@@ -116,6 +117,7 @@ async function fetchCourseFullById(id, reqUser = null) {
     );
 
     quizzes.push({
+      id: quizRow.id,
       quizTitle: quizRow.quiz_title,
       questions: questions.map(mapQuizQuestion),
     });

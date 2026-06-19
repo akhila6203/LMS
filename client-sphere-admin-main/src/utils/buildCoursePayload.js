@@ -1,5 +1,5 @@
 /** Strip File blobs; keep only fields the API persists */
-export function buildCoursePayload(course) {
+export function buildClassPayload(course) {
   const videos = (course.videos || [])
     .filter((v) => v?.title?.trim())
     .map((v) => ({
@@ -23,7 +23,7 @@ export function buildCoursePayload(course) {
     : course.questions?.length
       ? [
           {
-            quizTitle: course.quizTitle || "Course Quiz",
+            quizTitle: course.quizTitle || "Class Quiz",
             questions: course.questions,
           },
         ]
@@ -36,7 +36,7 @@ export function buildCoursePayload(course) {
     title: course.title,
     classLevel,
     subject,
-    instructor: course.instructor,
+    mentor: course.mentor || course.instructor || "",
     description: course.description,
     status: course.status || "Draft",
     thumbnail: course.thumbnail || null,
@@ -47,4 +47,7 @@ export function buildCoursePayload(course) {
   };
 }
 
-export default buildCoursePayload;
+/** @deprecated use buildClassPayload */
+export const buildCoursePayload = buildClassPayload;
+
+export default buildClassPayload;

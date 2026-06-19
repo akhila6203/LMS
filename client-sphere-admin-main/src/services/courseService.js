@@ -1,16 +1,19 @@
 import axiosClient from "@/api/axiosClient";
 import ENDPOINTS from "@/api/endpoints";
 
-export const courseService = {
-  getAll: () => axiosClient.get(ENDPOINTS.COURSES.BASE),
+export const classService = {
+  getAll: () => axiosClient.get(ENDPOINTS.CLASSES.BASE),
 
-  getById: (id) => axiosClient.get(ENDPOINTS.COURSES.byId(id)),
+  getById: (id) => axiosClient.get(ENDPOINTS.CLASSES.byId(id)),
 
-  create: (data) => axiosClient.post(ENDPOINTS.COURSES.BASE, data),
+  create: (data) => axiosClient.post(ENDPOINTS.CLASSES.BASE, data),
 
-  update: (id, data) => axiosClient.put(ENDPOINTS.COURSES.byId(id), data),
+  update: (id, data) => axiosClient.put(ENDPOINTS.CLASSES.byId(id), data),
 
-  delete: (id) => axiosClient.delete(ENDPOINTS.COURSES.byId(id)),
+  delete: (id) => axiosClient.delete(ENDPOINTS.CLASSES.byId(id)),
 };
 
-export default courseService;
+/** @deprecated use classService */
+export const courseService = classService;
+
+export default classService;

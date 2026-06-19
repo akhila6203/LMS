@@ -7,6 +7,7 @@ import { PageWithFooter } from "@/components/layout/PageWithFooter";
 import { CourseGridWithMore } from "@/components/CourseGridWithMore";
 import { usePublishedCourses } from "@/hooks/usePublishedCourses";
 import { filterCoursesByStudentClass } from "@/utils/classFilter";
+import { filterCoursesWithLessons } from "@/utils/courseFilters";
 import { getSessionUser } from "@/utils/authSession";
 import { formatClassDisplay } from "@/utils/classDisplay";
 import { mapPublicCourseForCard } from "@/utils/mapPublicCourse";
@@ -20,9 +21,9 @@ function AppCoursesPage() {
   const sessionUser = getSessionUser();
   const catalogCourses = useMemo(
     () =>
-      filterCoursesByStudentClass(courses, sessionUser).map((c) =>
-        mapPublicCourseForCard(c)
-      ),
+      filterCoursesWithLessons(
+        filterCoursesByStudentClass(courses, sessionUser)
+      ).map((c) => mapPublicCourseForCard(c)),
     [courses, sessionUser]
   );
 

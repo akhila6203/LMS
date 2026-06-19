@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { getSessionUser } from "@/utils/authSession";
+import { useAuth } from "@/contexts/AuthContext";
 import { fetchAdminProfile } from "@/services/adminProfileService";
 import { fetchUserProfile } from "@/services/userProfileService";
 
-/** Header avatar/name/email from database (not localStorage cache). */
+/** Header avatar/name/email from database (not browser storage). */
 export function useHeaderProfile() {
+  const { user: session } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const session = getSessionUser();
     if (!session?.id) {
       setProfile(null);
       setLoading(false);
@@ -33,15 +33,13 @@ export function useHeaderProfile() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     load();
     window.addEventListener("profileUpdated", load);
     return () => window.removeEventListener("profileUpdated", load);
   }, [load]);
-
-  const session = getSessionUser();
 
   return {
     loading,

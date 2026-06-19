@@ -55,8 +55,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
   MATERIAL_CLASS_OPTIONS,
-  getSubjectsForClass,
 } from "@/lib/catalog";
+import SubjectSelect from "@/components/admin/SubjectSelect";
 import { courseService } from "@/services/courseService";
 import { materialService } from "@/services/materialService";
 import { uploadService } from "@/services/uploadService";
@@ -207,7 +207,7 @@ export default function MaterialsPage() {
       <div className="flex justify-between items-start gap-4">
         <div>
           <p className="text-sm text-gray-500">
-            Resources from published courses appear here. Draft course uploads stay hidden until you publish.
+            Resources from published classes appear here. Draft class uploads stay hidden until you publish.
           </p>
         </div>
 
@@ -218,7 +218,7 @@ export default function MaterialsPage() {
               const csv = publishedItems
                 .map((i) => `${i.title},${normalizeMaterialType(i.type)},${i.course}`)
                 .join("\n");
-              const blob = new Blob([`Title,Type,Course\n${csv}`]);
+              const blob = new Blob([`Title,Type,Class\n${csv}`]);
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
@@ -242,7 +242,7 @@ export default function MaterialsPage() {
         <StatCard label="Total materials" value={stats.total} icon={FolderOpen} bg="bg-purple-100" color="text-purple-600" />
         <StatCard label="Videos" value={stats.videos} icon={FileVideo} bg="bg-blue-100" color="text-blue-600" />
         <StatCard label="Documents" value={stats.docs} icon={FileText} bg="bg-green-100" color="text-green-600" />
-        <StatCard label="Courses linked" value={publishedCourses.length} icon={HardDrive} bg="bg-orange-100" color="text-orange-600" />
+        <StatCard label="Classes linked" value={publishedCourses.length} icon={HardDrive} bg="bg-orange-100" color="text-orange-600" />
       </div>
 
       <Card>
@@ -349,7 +349,7 @@ export default function MaterialsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          No materials yet. Upload from here or add materials inside a course.
+          No materials yet. Upload from here or add materials inside a class.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -441,8 +441,6 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
   const [addToMatching, setAddToMatching] = useState(false);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-
-  const subjectOptions = classLevel ? getSubjectsForClass(classLevel) : [];
 
   const filteredCourses = useMemo(() => {
     return courses.filter((c) => {
@@ -602,29 +600,16 @@ function UploadMaterialDialog({ open, onOpenChange, courses, onSuccess }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Subject</Label>
-              <Select
-                value={subject || "none"}
-                onValueChange={(v) => {
-                  setSubject(v === "none" ? "" : v);
-                  setCourseId("");
-                }}
-                disabled={!classLevel}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Any subject</SelectItem>
-                  {subjectOptions.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <SubjectSelect
+              label="Subject"
+              value={subject}
+              onChange={(v) => {
+                setSubject(v);
+                setCourseId("");
+              }}
+              classLevel={classLevel}
+              required={false}
+            />
 
             <div>
               <Label>Lesson</Label>

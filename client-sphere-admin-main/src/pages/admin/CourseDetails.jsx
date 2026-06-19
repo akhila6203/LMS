@@ -83,12 +83,12 @@ export default function CourseDetails() {
   };
 
   const deleteCourseFromDb = async () => {
-    if (!window.confirm("Delete this course?")) return;
+    if (!window.confirm("Delete this class?")) return;
     setSaving(true);
     try {
       await courseService.delete(course.id);
-      alert("Course deleted");
-      navigate("/courses");
+      alert("Class deleted");
+      navigate("/classes");
     } catch (err) {
       alert(err.response?.data?.message || "Failed to delete course");
     } finally {
@@ -115,10 +115,10 @@ export default function CourseDetails() {
     return (
       <div className="p-6">
         <button onClick={() => navigate("/courses")} className="text-sm text-gray-600">
-          ← All courses
+          ← All classes
         </button>
         <div className="mt-6 rounded-2xl bg-white p-6 shadow text-gray-500">
-          Loading course…
+          Loading class…
         </div>
       </div>
     );
@@ -127,13 +127,13 @@ export default function CourseDetails() {
   if (!course) {
     return (
       <div className="p-6">
-        <button onClick={() => navigate("/courses")} className="text-sm text-gray-600">
-          ← All courses
+        <button onClick={() => navigate("/classes")} className="text-sm text-gray-600">
+          ← All classes
         </button>
         <div className="mt-6 rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-lg font-semibold">Course not found</h2>
+          <h2 className="text-lg font-semibold">Class not found</h2>
           <p className="mt-2 text-sm text-gray-500">
-            This course was not found in the database. Please go back and open a valid course.
+            This class was not found in the database. Please go back and open a valid class.
           </p>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function CourseDetails() {
 
       {/* HEADER */}
       <button onClick={() => navigate("/courses")}>
-        ← All courses
+        ← All classes
       </button>
 
      <div className="bg-white rounded-2xl shadow overflow-hidden">
@@ -207,9 +207,9 @@ export default function CourseDetails() {
   {course.description}
 </p>
 
-{/* INSTRUCTOR */}
+{/* MENTOR */}
 <p className="text-gray-700 text-sm mb-4">
-  By <span className="font-semibold">{course.instructor}</span>
+  Mentor: <span className="font-semibold">{course.mentor || course.instructor}</span>
 </p>
 
 {/* STATS */}
@@ -322,7 +322,7 @@ export default function CourseDetails() {
             {/* HEADER */}
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="font-semibold text-lg">Course materials</h3>
+                <h3 className="font-semibold text-lg">Session materials</h3>
                 <p className="text-sm text-gray-500">
                   PDFs, slides, and supporting documents.
                 </p>
@@ -428,24 +428,6 @@ export default function CourseDetails() {
   </button>
 
 </div>
-                    {/* <button
-                      onClick={() => {
-                        const updated = {
-                          ...course,
-                          materials: course.materials.filter((_, idx) => idx !== i),
-                        };
-
-                        const all = getCourses().map((c) =>
-                          c.id === course.id ? updated : c
-                        );
-
-                        localStorage.setItem("courses", JSON.stringify(all));
-                        setCourse(updated);
-                      }}
-                      className="text-gray-400 hover:text-red-500 transition"
-                    >
-                      <FaTrash />
-                    </button> */}
                   </div>
                 );
               })}
@@ -460,7 +442,7 @@ export default function CourseDetails() {
     {/* HEADER */}
     <div className="flex justify-between items-center mb-5">
       <div>
-        <h3 className="font-semibold text-lg">Course videos</h3>
+        <h3 className="font-semibold text-lg">Session videos</h3>
         <p className="text-sm text-gray-500">
           Lectures and tutorials your students will watch.
         </p>
@@ -944,7 +926,7 @@ export default function CourseDetails() {
 
         {/* HEADER */}
         <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="font-semibold text-lg">Edit Course</h2>
+          <h2 className="font-semibold text-lg">Edit Class</h2>
 
           <button
             onClick={() => setShowEdit(false)}

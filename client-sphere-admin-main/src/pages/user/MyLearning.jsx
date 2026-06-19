@@ -3,6 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Eye } from "lucide-react";
 import { enrollmentService } from "@/services/enrollmentService";
@@ -16,6 +23,59 @@ function formatDate(value) {
   } catch {
     return "-";
   }
+}
+
+function QuizScoreCell({ row }) {
+  const quizScores = Array.isArray(row.quizScores) ? row.quizScores : [];
+  const [selected, setSelected] = useState("total");
+
+  useEffect(() => {
+    setSelected("total");
+  }, [row.courseId, quizScores.length]);
+
+  if (quizScores.length === 0) {
+    if (row.quizScore != null && row.quizTotal != null) {
+      return (
+        <span className="font-medium text-foreground">
+          {row.quizScore}/{row.quizTotal}
+        </span>
+      );
+    }
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const totalScore = quizScores.reduce((sum, q) => sum + (q.score || 0), 0);
+  const totalQuestions = quizScores.reduce((sum, q) => sum + (q.total || 0), 0);
+  const selectedQuiz =
+    selected === "total"
+      ? null
+      : quizScores.find((q) => String(q.quizId) === selected);
+
+  const displayScore =
+    selected === "total"
+      ? `${totalScore}/${totalQuestions}`
+      : `${selectedQuiz?.score ?? 0}/${selectedQuiz?.total ?? 0}`;
+
+  return (
+    <div className="min-w-[140px] space-y-1">
+      <p className="font-medium text-foreground">{displayScore}</p>
+      {quizScores.length > 1 && (
+        <Select value={selected} onValueChange={setSelected}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="View quiz" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="total">Total (all quizzes)</SelectItem>
+            {quizScores.map((quiz) => (
+              <SelectItem key={quiz.quizId} value={String(quiz.quizId)}>
+                {quiz.quizTitle || `Quiz ${quiz.quizId}`} ({quiz.score}/{quiz.total})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
 }
 
 function MyLearningContent({ loading, stats, courses, navigate }) {
@@ -104,13 +164,7 @@ function MyLearningContent({ loading, stats, courses, navigate }) {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {row.quizScore != null && row.quizTotal != null ? (
-                      <span className="font-medium text-foreground">
-                        {row.quizScore}/{row.quizTotal}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <QuizScoreCell row={row} />
                   </td>
                   <td className="px-4 py-3">{formatDate(row.startedAt)}</td>
                   <td className="px-4 py-3">
@@ -139,7 +193,7 @@ function MyLearningContent({ loading, stats, courses, navigate }) {
                       variant="outline"
                       className="h-8 gap-1 px-2"
                       onClick={() =>
-                        navigate(`/courses/${row.courseId}`, {
+                        navigate(`/classes/${row.courseId}`, {
                           state: { from: "/my-learning" },
                         })
                       }
@@ -172,7 +226,7 @@ export default function MyLearningPage({ embedded = false }) {
   const load = async () => {
     setLoading(true);
     try {
-      const myRes = await enrollmentService.getMyCourses();
+      const myRes = await enrollmentService.getMyClasses();
       setStats(myRes.data.stats || {
         started: 0,
         completed: 0,

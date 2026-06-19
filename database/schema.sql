@@ -94,6 +94,22 @@ CREATE TABLE IF NOT EXISTS student_invites (
 );
 
 -- ---------------------------------------------------------------------------
+-- Subjects (admin-managed, per class level)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS subjects (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  class_level VARCHAR(50) NOT NULL DEFAULT '',
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_subject_class (name, class_level),
+  INDEX idx_subjects_class_level (class_level),
+  INDEX idx_subjects_status (status)
+);
+
+-- ---------------------------------------------------------------------------
 -- Classes (courses) & content
 -- ---------------------------------------------------------------------------
 
@@ -186,6 +202,19 @@ CREATE TABLE IF NOT EXISTS course_lesson_progress (
   completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_lesson_progress (enrollment_id, lesson_key),
   FOREIGN KEY (enrollment_id) REFERENCES course_enrollments(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS course_quiz_scores (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  enrollment_id INT NOT NULL,
+  quiz_id INT NOT NULL,
+  quiz_title VARCHAR(255) NOT NULL DEFAULT '',
+  score INT NOT NULL DEFAULT 0,
+  total INT NOT NULL DEFAULT 0,
+  completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_enrollment_quiz (enrollment_id, quiz_id),
+  FOREIGN KEY (enrollment_id) REFERENCES course_enrollments(id) ON DELETE CASCADE,
+  FOREIGN KEY (quiz_id) REFERENCES course_quizzes(id) ON DELETE CASCADE
 );
 
 -- ---------------------------------------------------------------------------

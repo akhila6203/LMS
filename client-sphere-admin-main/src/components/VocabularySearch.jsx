@@ -171,7 +171,7 @@ export function VocabularySearch({ open, onOpenChange }) {
                   type="button"
                   onClick={() => {
                     handleClose(false);
-                    navigate(`/courses/${match.courseId}`);
+                    navigate(`/classes/${match.courseId}`);
                   }}
                   className="w-full rounded-lg border p-3 text-left hover:bg-secondary transition"
                 >

@@ -51,7 +51,7 @@ import {
   saveAdminProfile,
 } from "@/services/adminProfileService";
 // import { adminSettingsService } from "@/services/adminSettingsService";
-import { getSessionUser } from "@/utils/authSession";
+import { useAuth } from "@/contexts/AuthContext";
 import { compressImageFile } from "@/utils/compressImage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -119,7 +119,7 @@ function SectionCard({ title, description, children, footer }) {
 
 /* ================= PROFILE ================= */
 function ProfileSection() {
-  const session = getSessionUser();
+  const { user: session } = useAuth();
   const fileRef = useRef(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -219,7 +219,7 @@ function ProfileSection() {
   return (
     <SectionCard
       title="Profile"
-      description="Same as student profile: name, email, photo and bio saved to the database."
+      description="Manage your admin profile, contact details, profile photo, and professional bio for your LMS platform."
       footer={
         <>
           {loadError && (

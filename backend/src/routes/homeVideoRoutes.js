@@ -6,6 +6,7 @@ const {
   getPublicHomeVideo,
   getAdminHomeVideos,
   createHomeVideo,
+  updateHomeVideo,
   deleteHomeVideo,
 } = require("../controllers/homeVideoController");
 
@@ -18,6 +19,13 @@ router.post("/", verifyAdmin, (req, res, next) => {
     next();
   });
 }, createHomeVideo);
+
+router.put("/:id", verifyAdmin, (req, res, next) => {
+  uploadVideo(req, res, (err) => {
+    if (err) return res.status(400).json({ message: err.message });
+    next();
+  });
+}, updateHomeVideo);
 
 router.delete("/:id", verifyAdmin, deleteHomeVideo);
 

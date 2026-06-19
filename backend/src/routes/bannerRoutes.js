@@ -8,6 +8,7 @@ const {
   getPublicBanners,
   getAdminBanners,
   createBanner,
+  updateBanner,
   deleteBanner,
 } = require("../controllers/bannerController");
 
@@ -21,6 +22,13 @@ router.post("/", verifyAdmin, (req, res, next) => {
     next();
   });
 }, createBanner);
+
+router.put("/:id", verifyAdmin, (req, res, next) => {
+  uploadBanner(req, res, (err) => {
+    if (err) return res.status(400).json({ message: err.message });
+    next();
+  });
+}, updateBanner);
 
 router.delete("/:id", verifyAdmin, deleteBanner);
 

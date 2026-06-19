@@ -36,58 +36,16 @@ export const MATERIAL_CLASS_OPTIONS = [...CLASS_OPTIONS];
 /** Schools for student enrollment — populated by admin via Add / bulk import */
 export const SCHOOL_OPTIONS = [];
 
-/** Primary subjects (Class 1–5) */
-export const PRIMARY_SUBJECT_OPTIONS = [
-  "Telugu",
-  "Hindi",
-  "English",
-  "Science",
-  "Maths",
-  "Social",
-  "Computer Science",
-  "General",
-];
-
-/** Higher subjects (Class 6–9) */
-export const HIGHER_SUBJECT_OPTIONS = [
-  "Telugu",
-  "Hindi",
-  "English",
-  "Maths",
-  "Physics",
-  "Biology",
-  "Chemistry",
-  "Social",
-  "Computer Science",
-  "General",
-];
-
-const CLASS_NUMBER = (classLevel = "") => {
-  const match = String(classLevel).match(/(\d+)/);
-  return match ? Number(match[1]) : 0;
-};
-
-/** Subjects shown when admin picks a class (Class 1–5 vs 6–9) */
-export function getSubjectsForClass(classLevel) {
-  const n = CLASS_NUMBER(classLevel);
-  if (n >= 6) return [...HIGHER_SUBJECT_OPTIONS];
-  if (n >= 1) return [...PRIMARY_SUBJECT_OPTIONS];
-  return [...PRIMARY_SUBJECT_OPTIONS, ...HIGHER_SUBJECT_OPTIONS.filter(
-    (s) => !PRIMARY_SUBJECT_OPTIONS.includes(s)
-  )];
+/** Subjects are loaded per class from the API — no hardcoded Hindi/Telugu lists */
+export function getSubjectsForClass() {
+  return [];
 }
-
-/** @deprecated use getSubjectsForClass(classLevel) */
-export const SUBJECT_OPTIONS = PRIMARY_SUBJECT_OPTIONS;
 
 /** Class is stored as category; subject as subCategory */
 export const CATEGORIES = ["All", ...CLASS_OPTIONS];
 
 export const CATEGORY_TABS = Object.fromEntries(
-  CLASS_OPTIONS.map((cls) => [
-    cls,
-    [`All ${cls}`, ...getSubjectsForClass(cls)],
-  ])
+  CLASS_OPTIONS.map((cls) => [cls, [`All ${cls}`]])
 );
 
 export const HOME_NAV_ITEMS = ["All", ...CLASS_OPTIONS];

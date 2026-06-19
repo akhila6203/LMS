@@ -1,24 +1,7 @@
-
 const db = require("../config/db");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-
-const buildToken = (admin) =>
-  jwt.sign(
-    { id: admin.id, role: "admin" },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
-const sanitizeAdmin = (admin) => ({
-  id: admin.id,
-  name: admin.name,
-  email: admin.email,
-  bio: admin.bio || "",
-  avatar: admin.avatar || null,
-  role: "admin",
-  status: admin.status,
-});
+const { setAuthCookie } = require("../utils/authCookie");
+const { toPublicAdmin } = require("../utils/authUsers");
 
 const emailExists = (normalizedEmail, callback) => {
   db.query(
@@ -126,11 +109,10 @@ exports.loginAdmin = (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = buildToken(admin);
+    setAuthCookie(res, { id: admin.id, role: "admin" });
 
     res.json({
-      token,
-      user: sanitizeAdmin(admin),
+      user: toPublicAdmin(admin),
     });
   });
 };

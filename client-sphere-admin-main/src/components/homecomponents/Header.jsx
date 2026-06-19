@@ -1,20 +1,17 @@
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Search,
   BookOpen,
   Moon,
   Sun,
   User,
   LogOut,
   Settings,
-  Languages,
 } from "lucide-react";
 import { useState } from "react";
-import { catalog } from "../../lib/catalog";
-import { isLearnerLoggedIn } from "@/utils/userStore";
-import { getSessionUser, clearAuthSession } from "@/utils/authSession";
+import { useAuth } from "@/contexts/AuthContext";
 import { useHeaderProfile } from "@/hooks/useHeaderProfile";
 import { useTheme } from "@/contexts/ThemeContext";
+import HeaderSearch from "@/components/HeaderSearch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +23,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 
 import logo from "../../assets/photos/logo.png";
-import VocabularySearch from "@/components/VocabularySearch";
+import PronunciationSearch from "@/components/PronunciationSearch";
 
 function SlidePanel({ open, onClose, title, children }) {
   return (
@@ -67,9 +64,8 @@ function SlidePanel({ open, onClose, title, children }) {
 
 export default function Header() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
   const { isDark, toggle } = useTheme();
-  const user = getSessionUser();
+  const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
   const headerProfile = useHeaderProfile();
 
@@ -78,13 +74,8 @@ export default function Header() {
   const emailText = user && !isAdmin ? headerProfile.email : user?.email || "";
 
   const [openPanel, setOpenPanel] = useState("none");
-  const [vocabOpen, setVocabOpen] = useState(false);
   const closePanel = () => setOpenPanel("none");
   const togglePanel = (panel) => setOpenPanel((prev) => (prev === panel ? "none" : panel));
-
-  const filteredCourses = catalog.filter((c) =>
-    c.title.toLowerCase().includes(query.toLowerCase())
-  );
 
   return (
     <>
@@ -101,42 +92,14 @@ export default function Header() {
             />
           </div>
 
-          <div className="relative w-full sm:w-40 md:w-80 lg:w-96">
-            <div className="flex items-center rounded-lg bg-secondary px-3 py-2 focus-within:ring-2 focus-within:ring-purple-500">
-              <Search className="mr-2 h-4 w-4 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search classes..."
-                className="w-full bg-transparent text-sm outline-none"
-              />
-            </div>
-
-            {query && (
-              <div className="absolute top-full mt-2 max-h-60 w-full overflow-y-auto rounded-xl border bg-card shadow-lg">
-                {filteredCourses.length > 0 ? (
-                  filteredCourses.map((course) => (
-                    <div
-                      key={course.id}
-                      onClick={() => {
-                        navigate(`/courses/${course.id}`);
-                        setQuery("");
-                      }}
-                      className="cursor-pointer px-4 py-2 text-sm hover:bg-secondary"
-                    >
-                      {course.title}
-                    </div>
-                  ))
-                ) : (
-                  <p className="p-4 text-sm text-muted-foreground">No results</p>
-                )}
-              </div>
-            )}
+          <div className="hidden md:block flex-1 max-w-md lg:max-w-lg mx-2">
+            <HeaderSearch placeholder="Search classes, subjects, lessons…" />
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-6">
+          <div className="flex items-center gap-1 sm:gap-3">
+            <HeaderSearch variant="mobile-only-icon" className="md:hidden" />
             <button
-              onClick={() => navigate("/homecourses")}
+              onClick={() => navigate("/homeclasses")}
               className="hidden md:flex items-center gap-1 text-sm font-medium"
             >
               <BookOpen className="h-4 w-4" />
@@ -144,15 +107,6 @@ export default function Header() {
             </button>
 
             {user && !isAdmin && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setVocabOpen(true)}
-                  className="hidden md:flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-                >
-                  <Languages className="h-4 w-4" />
-                  Vocabulary
-                </button>
                 <button
                   type="button"
                   onClick={() => navigate("/settings?tab=learning")}
@@ -161,7 +115,6 @@ export default function Header() {
                   <BookOpen className="h-4 w-4" />
                   My Learning
                 </button>
-              </>
             )}
 
             <Link to="/about" className="hidden md:block text-sm">
@@ -267,8 +220,8 @@ export default function Header() {
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => {
-                      clearAuthSession();
+                    onClick={async () => {
+                      await logout();
                       navigate("/", { replace: true });
                     }}
                     className="cursor-pointer gap-2 text-destructive focus:text-destructive"
@@ -296,12 +249,12 @@ export default function Header() {
           {user && !isAdmin && (
             <button
               onClick={() => {
-                setVocabOpen(true);
+                navigate("/settings?tab=learning");
                 closePanel();
               }}
               className="w-full text-left"
             >
-              Vocabulary
+              My Learning
             </button>
           )}
           <button
@@ -315,10 +268,6 @@ export default function Header() {
           </button>
         </div>
       </SlidePanel>
-
-      {user && !isAdmin && (
-        <VocabularySearch open={vocabOpen} onOpenChange={setVocabOpen} />
-      )}
     </>
   );
 }

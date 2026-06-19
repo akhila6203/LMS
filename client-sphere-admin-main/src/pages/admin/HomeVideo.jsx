@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FaPlus } from "react-icons/fa";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ export default function AdminHomeVideo() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [formKey, setFormKey] = useState(0);
   const fileInputRef = useRef(null);
 
@@ -42,30 +43,45 @@ export default function AdminHomeVideo() {
   const handleOpenChange = (nextOpen) => {
     setOpen(nextOpen);
     if (!nextOpen) {
+      setEditing(null);
       resetFileInput();
     }
+  };
+
+  const openEdit = (video) => {
+    setEditing(video);
+    resetFileInput();
+    setOpen(true);
   };
 
   const submit = async (e) => {
     e.preventDefault();
 
-    if (!file) {
+    if (!editing && !file) {
       toast.error("Please select demo video");
       return;
     }
 
     const formData = new FormData();
-    formData.append("file", file);
+    if (file) {
+      formData.append("file", file);
+    }
 
     setLoading(true);
     try {
-      await homeVideoService.create(formData);
-      toast.success("Home demo video added");
+      if (editing) {
+        await homeVideoService.update(editing.id, formData);
+        toast.success("Home demo video updated");
+      } else {
+        await homeVideoService.create(formData);
+        toast.success("Home demo video added");
+      }
       resetFileInput();
       setOpen(false);
+      setEditing(null);
       load();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add demo video");
+      toast.error(err.response?.data?.message || "Failed to save demo video");
     } finally {
       setLoading(false);
     }
@@ -86,7 +102,11 @@ export default function AdminHomeVideo() {
 
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setEditing(null);
+            resetFileInput();
+            setOpen(true);
+          }}
           className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-white shadow hover:bg-blue-700"
         >
           <FaPlus />
@@ -116,16 +136,27 @@ export default function AdminHomeVideo() {
                   {v.status}
                 </span>
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => remove(v.id)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEdit(v)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => remove(v.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -135,11 +166,23 @@ export default function AdminHomeVideo() {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Add home video</DialogTitle>
+            <DialogTitle>
+              {editing ? "Edit home video" : "Add home video"}
+            </DialogTitle>
             <DialogDescription>
-              Choose a video file to display on the homepage.
+              {editing
+                ? "Replace the video file or keep the current one."
+                : "Choose a video file to display on the homepage."}
             </DialogDescription>
           </DialogHeader>
+
+          {editing && (
+            <video
+              src={editing.video_url}
+              controls
+              className="h-48 w-full rounded-lg object-cover"
+            />
+          )}
 
           <form key={formKey} onSubmit={submit} className="space-y-4">
             <input
@@ -156,7 +199,9 @@ export default function AdminHomeVideo() {
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No video selected
+                {editing
+                  ? "No new video selected — current video will be kept"
+                  : "No video selected"}
               </p>
             )}
 
@@ -170,7 +215,11 @@ export default function AdminHomeVideo() {
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Uploading..." : "Add Home Video"}
+                {loading
+                  ? "Saving..."
+                  : editing
+                    ? "Save changes"
+                    : "Add Home Video"}
               </Button>
             </DialogFooter>
           </form>

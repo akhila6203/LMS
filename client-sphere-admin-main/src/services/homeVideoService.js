@@ -10,6 +10,11 @@ export const homeVideoService = {
       headers: { "Content-Type": "multipart/form-data" },
     }),
 
+  update: (id, formData) =>
+    axiosClient.put(ENDPOINTS.HOME_VIDEO.byId(id), formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+
   delete: (id) => axiosClient.delete(ENDPOINTS.HOME_VIDEO.byId(id)),
 };
 

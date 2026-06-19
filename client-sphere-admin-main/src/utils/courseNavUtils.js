@@ -29,7 +29,7 @@ export function buildNavCategories(courses = []) {
   return buildCatalogCategories(courses);
 }
 
-/** Subject pills for a class — only subjects with published courses, in add order */
+/** Subject pills for a class — only subjects with published courses that have lessons */
 export function buildSubTabs(courses = [], category) {
   if (!category || category === "All") return [];
 
@@ -37,6 +37,13 @@ export function buildSubTabs(courses = [], category) {
   const subs = [];
   for (const c of courses) {
     if (c.category !== category) continue;
+    const lessonCount =
+      Number(c.lessonCount) ||
+      Number(c.lessons) ||
+      Number(c.topics) ||
+      Number(c.topicCount) ||
+      0;
+    if (lessonCount <= 0) continue;
     const sub = (c.subCategory || c.subject || "").trim();
     if (sub && !seen.has(sub)) {
       seen.add(sub);

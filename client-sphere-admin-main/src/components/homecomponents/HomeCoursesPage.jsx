@@ -1,8 +1,12 @@
+import { useMemo } from "react";
 import { CourseCard } from "../../pages/user/CourseCard";
 
 import PublicCategoryFilters from "./PublicCategoryFilters";
 
 import { usePublishedCourses } from "@/hooks/usePublishedCourses";
+import { getSessionUser } from "@/utils/authSession";
+import { filterCoursesByStudentClass } from "@/utils/classFilter";
+import { filterCoursesWithLessons } from "@/utils/courseFilters";
 
 import { useCatalogCourseFilters } from "@/hooks/useCatalogCourseFilters";
 
@@ -15,6 +19,16 @@ import { CourseGridWithMore } from "@/components/CourseGridWithMore";
 export default function HomeCoursesPage() {
 
   const { courses, loading, error } = usePublishedCourses();
+  const sessionUser = getSessionUser();
+  const isLoggedInStudent = sessionUser && sessionUser.role === "user";
+
+  const scopedCourses = useMemo(() => {
+    let list = filterCoursesWithLessons(courses);
+    if (isLoggedInStudent) {
+      list = filterCoursesByStudentClass(list, sessionUser);
+    }
+    return list;
+  }, [courses, isLoggedInStudent, sessionUser]);
 
   const {
 
@@ -32,7 +46,7 @@ export default function HomeCoursesPage() {
 
     selectSubCategory,
 
-  } = useCatalogCourseFilters(courses);
+  } = useCatalogCourseFilters(scopedCourses);
 
 
 

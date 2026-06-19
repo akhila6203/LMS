@@ -4,15 +4,16 @@ const ThemeContext = createContext({ isDark: false, toggle: () => {} });
 
 export const useTheme = () => useContext(ThemeContext);
 
+const readThemePreference = () => {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+};
+
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem("theme");
-    return saved ? saved === "dark" : false;
-  });
+  const [isDark, setIsDark] = useState(readThemePreference);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
-    localStorage.setItem("theme", isDark ? "dark" : "light");
   }, [isDark]);
 
   const toggle = () => {

@@ -43,7 +43,22 @@ async function getProgressForEnrollment(enrollmentId, courseId) {
     videos.length === videosDone &&
     materials.length === materialsDone &&
     contentUnits > 0;
-  const quizDone = doneSet.has("quiz:all");
+
+  const legacyAllQuizDone = doneSet.has("quiz:all");
+  const completedQuizIds = new Set(
+    [...doneSet]
+      .filter((key) => key.startsWith("quiz:") && key !== "quiz:all")
+      .map((key) => key.slice("quiz:".length))
+  );
+
+  const quizDone =
+    quizzes.length === 0
+      ? legacyAllQuizDone
+      : quizzes.every(
+          (q) =>
+            completedQuizIds.has(String(q.id)) ||
+            (legacyAllQuizDone && quizzes.length === 1)
+        );
 
   return {
     totalUnits: contentUnits,

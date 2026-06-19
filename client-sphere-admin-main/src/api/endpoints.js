@@ -8,6 +8,8 @@ const ENDPOINTS = {
     GOOGLE_LOGIN: "/auth/google-login",
     ADMIN_LOGIN: "/auth/admin/login",
     ADMIN_REGISTER: "/auth/admin/register",
+    ME: "/auth/me",
+    LOGOUT: "/auth/logout",
   },
   ADMIN_PROFILE: {
     ME: "/admin/profile/me",
@@ -29,17 +31,17 @@ HOME_VIDEO: {
   PUBLIC: "/home-video/public",
   byId: (id) => `/home-video/${id}`,
 },
-  COURSES: {
-    BASE: "/courses",
-    byId: (id) => `/courses/${id}`,
+  CLASSES: {
+    BASE: "/classes",
+    byId: (id) => `/classes/${id}`,
   },
-  PUBLIC_COURSES: {
-    BASE: "/public/courses",
-    byId: (id) => `/public/courses/${id}`,
+  PUBLIC_CLASSES: {
+    BASE: "/public/classes",
+    byId: (id) => `/public/classes/${id}`,
   },
   LEARNER: {
-    COURSES: "/learner/courses",
-    courseById: (id) => `/learner/courses/${id}`,
+    CLASSES: "/learner/classes",
+    classById: (id) => `/learner/classes/${id}`,
     DASHBOARD: "/learner/dashboard",
   },
   STUDENTS: {
@@ -51,6 +53,15 @@ HOME_VIDEO: {
   SCHOOLS: {
     BASE: "/schools",
   },
+  SUBJECTS: {
+    BASE: "/subjects",
+    PUBLIC: "/subjects/public",
+    byId: (id) => `/subjects/${id}`,
+  },
+  USER: {
+    SUBJECTS: "/user/subjects",
+  },
+  SEARCH: "/search",
   VOCABULARY: {
     LOOKUP: "/vocabulary/lookup",
   },
@@ -59,11 +70,11 @@ HOME_VIDEO: {
     PASSWORD: "/user/profile/password",
   },
   ENROLLMENTS: {
-    MY_COURSES: "/learner/enrollments/my-courses",
+    MY_CLASSES: "/learner/enrollments/my-classes",
     RECOMMENDED: "/learner/enrollments/recommended",
-    progress: (courseId) => `/learner/enrollments/courses/${courseId}/progress`,
-    quizComplete: (courseId) => `/learner/enrollments/courses/${courseId}/quiz-complete`,
-    byCourse: (courseId) => `/learner/enrollments/courses/${courseId}`,
+    progress: (classId) => `/learner/enrollments/classes/${classId}/progress`,
+    quizComplete: (classId) => `/learner/enrollments/classes/${classId}/quiz-complete`,
+    byClass: (classId) => `/learner/enrollments/classes/${classId}`,
   },
   UPLOAD: {
     VIDEO: "/upload/video",

@@ -15,7 +15,7 @@ export default function CreateCourse() {
         key="new-course"
         step={step}
         setStep={setStep}
-        onClose={() => navigate("/courses")}
+        onClose={() => navigate("/classes")}
         initialData={{}}
       />
     </div>

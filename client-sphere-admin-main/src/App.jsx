@@ -21,6 +21,7 @@ import Materials from "@/pages/admin/Materials";
 import AdminSettings from "@/pages/admin/Settings";
 import AdminBanners from "@/pages/admin/Banners";
 import AdminHomeVideo from "@/pages/admin/HomeVideo";
+// import AdminSubjects from "@/pages/admin/Subjects";
 
 // USER
 import UserDashboard from "@/pages/user/Dashboard";
@@ -42,12 +43,26 @@ const queryClient = new QueryClient();
 import AdminLayout from "./layouts/AdminLayout";
 import UserLayout from "./layouts/UserLayout";
 import HomeCoursesPage from "./components/homecomponents/HomeCoursesPage";
-import { getSessionUser } from "@/utils/authSession";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import AuthLoadingScreen from "@/components/AuthLoadingScreen";
 import { isLearnerSession } from "@/utils/publicRoutes";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+const RedirectLegacyCourseId = () => {
+  const { id } = useParams();
+  return <Navigate to={`/classes/${id}`} replace />;
+};
+
+const RedirectLegacyAdminCourseId = () => {
+  const { id } = useParams();
+  return <Navigate to={`/admin/classes/${id}`} replace />;
+};
 
 const ProtectedRoute = () => {
   const location = useLocation();
-  const user = getSessionUser();
+  const { user } = useAuth();
 
   if (!user) {
     const redirect = encodeURIComponent(`${location.pathname}${location.search}`);
@@ -58,20 +73,20 @@ const ProtectedRoute = () => {
 };
 
 const AdminOnlyRoute = ({ children }) => {
-  const user = getSessionUser();
+  const { user } = useAuth();
   if (!user) return <Navigate to="/login?type=admin" />;
   if (user.role !== "admin") return <Navigate to="/dashboard" />;
   return children;
 };
 
 const RoleRoute = ({ adminElement, userElement }) => {
-  const user = getSessionUser();
+  const { user } = useAuth();
   if (!user) return <Navigate to="/login" />;
   return user.role === "admin" ? adminElement : userElement;
 };
 
-const CourseGate = () => {
-  const user = getSessionUser();
+const ClassGate = () => {
+  const { user } = useAuth();
 
   if (!user) {
     return (
@@ -89,7 +104,7 @@ const CourseGate = () => {
 };
 
 const PublicRoute = ({ children }) => {
-  const user = getSessionUser();
+  const { user } = useAuth();
 
   if (user?.role === "admin") {
     return <Navigate to="/dashboard" replace />;
@@ -101,40 +116,40 @@ const PublicRoute = ({ children }) => {
 
   return children;
 };
-// const PublicRoute = ({ children }) => {
-//   const user = getSessionUser();
 
-//   if (user?.role === "admin") {
-//     return <Navigate to="/courses" replace />;
-//   }
+// i am chnaging for google authentication
+const LoginRoute = () => {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/dashboard" replace />;
 
-//   if (isLearnerSession(user)) {
-//     return <Navigate to="/dashboard" replace />;
-//   }
+  return <Login />;
+};
+// const LoginRoute = () => {
+//   const { user } = useAuth();
+//   if (user) return <Navigate to="/dashboard" replace />;
 
-//   return children;
+//   const loginPage = <Login />;
+//   if (!GOOGLE_CLIENT_ID) return loginPage;
+
+//   return (
+//     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID} useOneTap={false}>
+//       {loginPage}
+//     </GoogleOAuthProvider>
+//   );
 // };
 
-const App = () => {
+const AppRoutes = () => {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <AuthLoadingScreen />;
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <UICustomizationProvider>
-          <TooltipProvider>
-            <BrowserRouter
-              future={{
-                v7_startTransition: true,
-                v7_relativeSplatPath: true,
-              }}
-            >
-
-              <Toaster />
-              <Sonner />
-
-              <Routes>
+    <Routes>
 
                 {/* PUBLIC */}
-                <Route path="/login" element={<Login />} />
+                <Route path="/login" element={<LoginRoute />} />
                 <Route path="/admin/register" element={<AdminRegister />} />
 
                 <Route element={<MainLayout />}>
@@ -148,13 +163,14 @@ const App = () => {
                     />
 
                     <Route
-                      path="/homecourses"
+                      path="/homeclasses"
                       element={
                         <PublicRoute>
                           <HomeCoursesPage />
                         </PublicRoute>
                       }
                     />
+                    <Route path="/homecourses" element={<Navigate to="/homeclasses" replace />} />
                   <Route
                     path="/about"
                     element={
@@ -165,8 +181,9 @@ const App = () => {
                   />
                 </Route>
 
-                {/* Course details (public preview OR full after login) */}
-                <Route path="/courses/:id" element={<CourseGate />} />
+                {/* Class details (public preview OR full after login) */}
+                <Route path="/classes/:id" element={<ClassGate />} />
+                <Route path="/courses/:id" element={<RedirectLegacyCourseId />} />
                           
                 {/* PROTECTED */}
                 <Route element={<ProtectedRoute />}>
@@ -176,17 +193,19 @@ const App = () => {
                     element={<RoleRoute adminElement={<AdminDashboard />} userElement={<UserDashboard />} />}
                   />
                   <Route
-                    path="/courses"
+                    path="/classes"
                     element={<RoleRoute adminElement={<AdminCourses />} userElement={<UserCourses />} />}
                   />
+                  <Route path="/courses" element={<Navigate to="/classes" replace />} />
                   <Route
-                    path="/courses/create"
+                    path="/classes/create"
                     element={
                       <AdminOnlyRoute>
                         <CreateCourse />
                       </AdminOnlyRoute>
                     }
                   />
+                  <Route path="/courses/create" element={<Navigate to="/classes/create" replace />} />
                   <Route path="/development" element={<UserDevelopment />} />
                   <Route
                     path="/my-learning"
@@ -219,13 +238,14 @@ const App = () => {
                     }
                   />
                   <Route
-                    path="/admin/courses/:id"
+                    path="/admin/classes/:id"
                     element={
                       <AdminOnlyRoute>
                         <CourseDetails />
                       </AdminOnlyRoute>
                     }
                   />
+                  <Route path="/admin/courses/:id" element={<RedirectLegacyAdminCourseId />} />
                   <Route
                     path="/admin/banners"
                     element={
@@ -244,13 +264,58 @@ const App = () => {
                     }
                   />
 
+                  {/* <Route
+                    path="/subjects"
+                    element={
+                      <AdminOnlyRoute>
+                        <AdminSubjects />
+                      </AdminOnlyRoute>
+                    }
+                  /> */}
+
                 </Route>
 
                 {/* NOT FOUND */}
                 <Route path="*" element={<NotFound />} />
 
               </Routes>
+  );
+};
 
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <UICustomizationProvider>
+          <TooltipProvider>
+            <BrowserRouter
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
+              <AuthProvider>
+  {GOOGLE_CLIENT_ID ? (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <Toaster />
+      <Sonner />
+      <AppRoutes />
+    </GoogleOAuthProvider>
+  ) : (
+    <>
+      <Toaster />
+      <Sonner />
+      <AppRoutes />
+    </>
+  )}
+</AuthProvider>
+              {/* <AuthProvider>
+                <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+                  <Toaster />
+                  <Sonner />
+                  <AppRoutes />
+                </GoogleOAuthProvider>
+              </AuthProvider> */}
             </BrowserRouter>
           </TooltipProvider>
         </UICustomizationProvider>
@@ -258,6 +323,30 @@ const App = () => {
     </QueryClientProvider>
   );
 };
+// const App = () => {
+//   return (
+//     <QueryClientProvider client={queryClient}>
+//       <ThemeProvider>
+//         <UICustomizationProvider>
+//           <TooltipProvider>
+//             <BrowserRouter
+//               future={{
+//                 v7_startTransition: true,
+//                 v7_relativeSplatPath: true,
+//               }}
+//             >
+//               <AuthProvider>
+//                 <Toaster />
+//                 <Sonner />
+//                 <AppRoutes />
+//               </AuthProvider>
+//             </BrowserRouter>
+//           </TooltipProvider>
+//         </UICustomizationProvider>
+//       </ThemeProvider>
+//     </QueryClientProvider>
+//   );
+// };
 
 export default App;
 

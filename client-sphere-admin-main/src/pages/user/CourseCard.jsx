@@ -14,7 +14,7 @@ export function CourseCard({ course }) {
 
   return (
     <Card className="h-full overflow-hidden rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-      <Link to={`/courses/${course.id}`} state={{ from }} className="block group">
+      <Link to={`/classes/${course.id}`} state={{ from }} className="block group">
         <div className="relative h-32 sm:h-36 overflow-hidden">
           {course.thumbnail ? (
             <img
@@ -52,7 +52,7 @@ export function CourseCard({ course }) {
           </p>
 
           <p className="text-xs text-muted-foreground">
-            By {course.instructor || "Instructor"}
+            By {course.mentor || course.instructor || "Mentor"}
           </p>
 
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground sm:gap-3 sm:text-xs">

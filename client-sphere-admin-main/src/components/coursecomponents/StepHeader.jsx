@@ -1,5 +1,5 @@
 const steps = [
-  "Course Info",
+  "Class Info",
   "Videos",
   "Materials",
   "Quiz",

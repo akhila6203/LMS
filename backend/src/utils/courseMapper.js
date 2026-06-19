@@ -44,6 +44,7 @@ function mapCourseRow(row) {
     category: classLevel,
     subCategory: subject,
     instructor: row.instructor || "",
+    mentor: row.instructor || "",
     description: row.description || "",
     status: row.status,
     students,

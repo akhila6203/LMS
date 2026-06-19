@@ -33,7 +33,7 @@ import {
   fetchUserProfile,
   saveUserProfile,
 } from "@/services/userProfileService";
-import { getSessionUser, clearAuthSession } from "@/utils/authSession";
+import { useAuth } from "@/contexts/AuthContext";
 import { compressImageFile } from "@/utils/compressImage";
 
 // const emptyProfileForm = () => ({
@@ -54,6 +54,7 @@ const emptyProfileForm = () => ({
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { user: authUser, logout } = useAuth();
   const [user, setUser] = useState(emptyProfileForm);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileLoadError, setProfileLoadError] = useState("");
@@ -78,7 +79,7 @@ export default function SettingsPage() {
         }));
       } catch (err) {
         if (cancelled) return;
-        const session = getSessionUser();
+        const session = authUser;
         setProfileLoadError(
           err.response?.data?.message || "Could not load profile from database"
         );
@@ -97,7 +98,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authUser]);
 
   const [theme, setTheme] = useState("light");
 
@@ -322,8 +323,8 @@ const handleAvatarChange = async (e) => {
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    clearAuthSession();
+                  onClick={async () => {
+                    await logout();
                     navigate("/", { replace: true });
                   }}
                 >

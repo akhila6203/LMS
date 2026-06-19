@@ -62,8 +62,8 @@ export default function PublicCoursePage() {
   }, [id]);
 
   const handleProtected = () => {
-    if (!isLoggedIn) navigate(`/login?redirect=/courses/${id}`);
-    else navigate(`/courses/${id}`);
+    if (!isLoggedIn) navigate(`/login?redirect=/classes/${id}`);
+    else navigate(`/classes/${id}`);
   };
 
   if (loading) {
@@ -170,7 +170,7 @@ export default function PublicCoursePage() {
                 type="button"
                 onClick={() => {
                   if (!isLoggedIn) {
-                    navigate(`/login?redirect=/courses/${id}`);
+                    navigate(`/login?redirect=/classes/${id}`);
                     return;
                   }
                   toggleCart(course.id, course);

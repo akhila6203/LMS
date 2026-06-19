@@ -7,6 +7,7 @@ export default function ClassSelect({
   label = "Class",
   required = true,
   className = "",
+  emptyLabel = "Select class (1–9)",
 }) {
   return (
     <SelectWithOther
@@ -16,7 +17,7 @@ export default function ClassSelect({
       options={CLASS_OPTIONS}
       required={required}
       className={className}
-      emptyLabel="Select class (1–9)"
+      emptyLabel={emptyLabel}
       otherPlaceholder="Enter class / grade"
     />
   );

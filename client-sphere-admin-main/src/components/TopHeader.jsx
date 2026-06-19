@@ -1,20 +1,18 @@
 import {
-  Search,
   Sun,
   Moon,
   User,
   LogOut,
   Settings,
   BookOpen,
-  Languages,
 } from "lucide-react";
 
 import { useTheme } from "@/contexts/ThemeContext";
-import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-import { getSessionUser, clearAuthSession } from "@/utils/authSession";
+import { useAuth } from "@/contexts/AuthContext";
 import { useHeaderProfile } from "@/hooks/useHeaderProfile";
+import HeaderSearch from "@/components/HeaderSearch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,19 +22,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import logo from "../assets/photos/logo.png"
-import VocabularySearch from "@/components/VocabularySearch";
+import logo from "../assets/photos/logo.png";
 
 export function TopHeader() {
   const { isDark, toggle } = useTheme();
   const navigate = useNavigate();
-  const [vocabOpen, setVocabOpen] = useState(false);
-  const user = getSessionUser() || {
+  const { user, logout } = useAuth();
+  const sessionUser = user || {
     name: "Learner",
     email: "learner@example.com",
     role: "user",
   };
-  const isAdmin = user?.role === "admin";
+  const isAdmin = sessionUser?.role === "admin";
   const { name: nameText, email: emailText, avatar: avatarSrc } =
     useHeaderProfile();
 
@@ -46,13 +43,13 @@ export function TopHeader() {
 
 let title = "Dashboard";
 
-if (path.startsWith("/admin/courses/")) {
+if (path.startsWith("/admin/classes/")) {
   title = "Class Detail";
-} else if (path.startsWith("/courses/create")) {
+} else if (path.startsWith("/classes/create")) {
   title = "Create Class";
-} else if (path.startsWith("/courses/")) {
+} else if (path.startsWith("/classes/")) {
   title = "Class Detail";
-} else if (path.startsWith("/courses")) {
+} else if (path.startsWith("/classes")) {
   title = "Classes";
 } else if (path.startsWith("/dashboard")) {
   title = "Dashboard";
@@ -64,6 +61,8 @@ if (path.startsWith("/admin/courses/")) {
   title = "Banners";
 } else if (path.startsWith("/admin/home-video")) {
   title = "Home Videos";
+} else if (path.startsWith("/subjects")) {
+  title = "Subjects";
 } else if (path.startsWith("/quiz")) {
   title = "Quiz";
 } else if (path.startsWith("/settings")) {
@@ -106,39 +105,25 @@ if (path.startsWith("/admin/courses/")) {
           )}
         </div>
         
-        {/* Search */}
-          <div className="flex-1 flex justify-center px-2">
-            <div className="hidden md:block relative w-full max-w-2xl flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder={user?.role === "admin" ? `Search ${title.toLowerCase()}...` : "Search for anything"}
-                className="w-full h-11 rounded-full border border-border bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
-              />
-            </div>
-          </div>
-        
+        {/* Search — desktop inline, mobile icon overlay */}
+        <div className="flex flex-1 justify-center px-2">
+          <HeaderSearch
+            placeholder={user?.role === "admin" ? `Search ${title.toLowerCase()}…` : "Search classes, subjects, lessons…"}
+            className="hidden md:block w-full max-w-2xl"
+          />
+        </div>
 
         <div className="flex items-center gap-1.5">
+          <HeaderSearch variant="mobile-only-icon" className="md:hidden" />
           {user?.role !== "admin" && (
-            <>
-              <button
-                type="button"
-                onClick={() => setVocabOpen(true)}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-              >
-                <Languages className="h-4 w-4" />
-                Vocabulary
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/settings?tab=learning")}
-                className="hidden md:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-              >
-                <BookOpen className="h-4 w-4" />
-                My Learning
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => navigate("/settings?tab=learning")}
+              className="hidden md:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <BookOpen className="h-4 w-4" />
+              My Learning
+            </button>
           )}
 
           <button
@@ -248,8 +233,8 @@ if (path.startsWith("/admin/courses/")) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="cursor-pointer gap-2 text-destructive focus:text-destructive"
-                onClick={() => {
-                  clearAuthSession();
+                onClick={async () => {
+                  await logout();
                   navigate("/", { replace: true });
                 }}
               >
@@ -259,9 +244,6 @@ if (path.startsWith("/admin/courses/")) {
           </DropdownMenu>
         </div>
       </header>
-      {user?.role !== "admin" && (
-        <VocabularySearch open={vocabOpen} onOpenChange={setVocabOpen} />
-      )}
     </>
   );
 }

@@ -8,6 +8,10 @@ export const bannerService = {
     axiosClient.post(ENDPOINTS.BANNERS.BASE, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
+  update: (id, formData) =>
+    axiosClient.put(ENDPOINTS.BANNERS.byId(id), formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
   delete: (id) => axiosClient.delete(ENDPOINTS.BANNERS.byId(id)),
 };
 

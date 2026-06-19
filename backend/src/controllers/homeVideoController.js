@@ -62,3 +62,31 @@ exports.deleteHomeVideo = async (req, res) => {
     res.status(500).json({ message: "Failed to delete video" });
   }
 };
+
+exports.updateHomeVideo = async (req, res) => {
+  const id = req.params.id;
+  const status = req.body.status;
+
+  try {
+    if (req.file) {
+      const videoUrl = fileUrl(req, req.file.filename);
+      await query(`UPDATE home_demo_videos SET video_url = ? WHERE id = ?`, [videoUrl, id]);
+    }
+
+    if (status) {
+      if (status === "Active") {
+        await query(`UPDATE home_demo_videos SET status='Inactive' WHERE id != ?`, [id]);
+      }
+      await query(`UPDATE home_demo_videos SET status = ? WHERE id = ?`, [status, id]);
+    }
+
+    const rows = await query(`SELECT * FROM home_demo_videos WHERE id = ?`, [id]);
+    if (!rows.length) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+
+    res.json({ message: "Video updated", video: rows[0] });
+  } catch {
+    res.status(500).json({ message: "Failed to update demo video" });
+  }
+};

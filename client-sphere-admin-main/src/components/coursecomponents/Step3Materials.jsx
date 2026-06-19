@@ -111,7 +111,7 @@ export default function Step3({ onNext, data = {}, setStep, isModal = false, isE
 
       <div className={`space-y-5 ${isModal ? "" : "bg-white rounded-2xl shadow p-6"}`}>
         <div>
-          <label className="text-sm font-medium">Title</label>
+          <label className="text-sm font-medium">Material Title</label>
           <input
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -130,11 +130,6 @@ export default function Step3({ onNext, data = {}, setStep, isModal = false, isE
             <option>PDF</option>
             <option>DOC</option>
             <option>DOCX</option>
-            <option>PPT</option>
-            <option>PPTX</option>
-            <option>Image</option>
-            <option>ZIP</option>
-            <option>Link</option>
           </select>
         </div>
 

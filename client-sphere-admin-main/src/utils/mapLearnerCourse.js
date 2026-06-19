@@ -23,6 +23,7 @@ export function mapLearnerCourseDetail(course) {
   }));
 
   const quizzes = (course.quizzes || []).map((qz) => ({
+    id: qz.id,
     quizTitle: qz.quizTitle || "Quiz",
     questions: (qz.questions || []).map((q, qi) => ({
       id: `q-${qi + 1}`,

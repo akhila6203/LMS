@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaUser } from "react-icons/fa";
-import login from "../assets/photos/login.jpg";
 import { authService } from "@/services/authService";
 
 const passwordRegex =
@@ -73,8 +72,7 @@ export default function AdminRegister() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gray-100">
-      <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
-        <img src={login} alt="" className="w-full h-full object-cover" />
+      <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-600 via-green-500 to-blue-400">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/60 via-green-500/50 to-blue-400/40" />
         <div className="absolute top-[56%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-white z-20">
           <div className="max-w-md text-center">

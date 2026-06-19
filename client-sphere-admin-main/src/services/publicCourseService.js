@@ -7,10 +7,13 @@ const publicClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-export const publicCourseService = {
-  getAll: () => publicClient.get(ENDPOINTS.PUBLIC_COURSES.BASE),
+export const publicClassService = {
+  getAll: () => publicClient.get(ENDPOINTS.PUBLIC_CLASSES.BASE),
 
-  getById: (id) => publicClient.get(ENDPOINTS.PUBLIC_COURSES.byId(id)),
+  getById: (id) => publicClient.get(ENDPOINTS.PUBLIC_CLASSES.byId(id)),
 };
 
-export default publicCourseService;
+/** @deprecated use publicClassService */
+export const publicCourseService = publicClassService;
+
+export default publicClassService;

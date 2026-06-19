@@ -2,23 +2,27 @@ import axiosClient from "@/api/axiosClient";
 import ENDPOINTS from "@/api/endpoints";
 
 export const enrollmentService = {
-  getMyCourses: () => axiosClient.get(ENDPOINTS.ENROLLMENTS.MY_COURSES),
+  getMyClasses: () => axiosClient.get(ENDPOINTS.ENROLLMENTS.MY_CLASSES),
 
   getRecommended: () => axiosClient.get(ENDPOINTS.ENROLLMENTS.RECOMMENDED),
 
-  saveProgress: (courseId, lessonKey, lessonType = "video") =>
-    axiosClient.post(ENDPOINTS.ENROLLMENTS.progress(courseId), {
+  saveProgress: (classId, lessonKey, lessonType = "video") =>
+    axiosClient.post(ENDPOINTS.ENROLLMENTS.progress(classId), {
       lessonKey,
       lessonType,
     }),
 
-  completeQuiz: (courseId, { score, total } = {}) =>
-    axiosClient.post(ENDPOINTS.ENROLLMENTS.quizComplete(courseId), {
+  completeQuiz: (classId, { score, total, quizId } = {}) =>
+    axiosClient.post(ENDPOINTS.ENROLLMENTS.quizComplete(classId), {
       score,
       total,
+      quizId,
     }),
 
-  remove: (courseId) => axiosClient.delete(ENDPOINTS.ENROLLMENTS.byCourse(courseId)),
+  remove: (classId) => axiosClient.delete(ENDPOINTS.ENROLLMENTS.byClass(classId)),
 };
+
+/** @deprecated use getMyClasses */
+export const getMyCourses = enrollmentService.getMyClasses;
 
 export default enrollmentService;

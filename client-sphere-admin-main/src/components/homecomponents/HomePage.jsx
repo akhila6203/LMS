@@ -11,23 +11,25 @@ import {
   Shield,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { homeVideoService } from "@/services/homeVideoService";
 
 import { CourseCard } from "../../pages/user/CourseCard";
 import VideoPlayer from "../../pages/user/VideoPlayer";
 import { usePublishedCourses } from "@/hooks/usePublishedCourses";
 import { getSessionUser } from "@/utils/authSession";
+import { filterCoursesByStudentClass } from "@/utils/classFilter";
+import { filterCoursesWithLessons } from "@/utils/courseFilters";
 
 import demo from "../../assets/videos/demo.mp4";
 import { PageWithFooter } from "@/components/layout/PageWithFooter";
 
-const features = [
-  { icon: Award, title: "Certified courses", desc: "Industry-recognized certificates upon completion." },
-  { icon: Users, title: "Mentor support", desc: "Direct access to instructors and community." },
-  { icon: Zap, title: "Hands-on projects", desc: "Ship real work — not just theory." },
-  { icon: Shield, title: "Lifetime access", desc: "Buy once, learn forever." },
-];
+// const features = [
+//   { icon: Award, title: "Certified courses", desc: "Industry-recognized certificates upon completion." },
+//   { icon: Users, title: "Mentor support", desc: "Direct access to instructors and community." },
+//   { icon: Zap, title: "Hands-on projects", desc: "Ship real work — not just theory." },
+//   { icon: Shield, title: "Lifetime access", desc: "Buy once, learn forever." },
+// ];
 
 const HOME_PREVIEW_COUNT = 12;
 
@@ -36,7 +38,13 @@ export default function HomePage() {
   const sessionUser = getSessionUser();
   const isLoggedIn = sessionUser && sessionUser.role !== "admin";
 
-  const visiblePool = courses;
+  const visiblePool = useMemo(() => {
+    let list = filterCoursesWithLessons(courses);
+    if (isLoggedIn) {
+      list = filterCoursesByStudentClass(list, sessionUser);
+    }
+    return list;
+  }, [courses, isLoggedIn, sessionUser]);
   const visibleCourses = visiblePool.slice(0, HOME_PREVIEW_COUNT);
   const heroCourse = visiblePool[0] || courses[0];
 
@@ -76,8 +84,8 @@ export default function HomePage() {
             </p>
 
             <div className="mt-6 flex gap-4">
-              <a href="#courses" className="bg-purple-600 text-white px-6 py-3 rounded-lg flex items-center gap-2">
-                Browse courses <ChevronRight className="w-4 h-4" />
+              <a href="#classes" className="bg-purple-600 text-white px-6 py-3 rounded-lg flex items-center gap-2">
+                Browse classes <ChevronRight className="w-4 h-4" />
               </a>
 
               {!isLoggedIn && (
@@ -127,7 +135,7 @@ export default function HomePage() {
                   {courses.slice(1, 4).map((c) => (
                     <Link
                       key={c.id}
-                      to={`/courses/${c.id}`}
+                      to={`/classes/${c.id}`}
                       className="block bg-white rounded-xl shadow overflow-hidden hover:shadow-md transition"
                     >
                       {c.thumbnail ? (
@@ -157,7 +165,7 @@ export default function HomePage() {
       </section>
 
       {/* FEATURES */}
-      <section className="border-y bg-secondary/40 py-10">
+      {/* <section className="border-y bg-secondary/40 py-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {features.map((f) => (
             <div key={f.title} className="flex gap-3">
@@ -171,15 +179,15 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* COURSES */}
-      <section id="courses" className="max-w-7xl mx-auto py-12 sm:py-16">
+      <section id="classes" className="max-w-7xl mx-auto py-12 sm:py-16">
         <div className="flex justify-between items-end">
           <div>
             <h2 className="text-3xl font-bold">Skills to transform your career</h2>
             <p className="mt-2 text-muted-foreground">
-              Learn in-demand skills through expert-led courses, real-world projects, and industry-focused training.
+              Learn in-demand skills through expert-led classes, real-world projects, and industry-focused training.
             </p>
           </div>
         </div>
@@ -193,18 +201,18 @@ export default function HomePage() {
         </div>
 
         {loading && (
-          <p className="mt-8 text-center text-muted-foreground">Loading courses…</p>
+          <p className="mt-8 text-center text-muted-foreground">Loading classes…</p>
         )}
 
         {error && !loading && (
           <p className="mt-8 text-center text-red-500 text-sm">
-            Could not load courses. Make sure the backend is running.
+            Could not load classes. Make sure the backend is running.
           </p>
         )}
 
         {!loading && !error && visiblePool.length === 0 && (
           <p className="mt-8 text-center text-muted-foreground">
-            No published courses yet.
+            No published classes yet.
           </p>
         )}
 
@@ -221,7 +229,7 @@ export default function HomePage() {
               variant="outline"
               className="rounded-full px-8"
             >
-              <Link to="/homecourses">More</Link>
+              <Link to="/homeclasses">More</Link>
             </Button>
           </div>
         )}

@@ -53,12 +53,12 @@ export default function CourseDrawer({
 
         const res = await courseService.create(payload);
 
-        alert("Course saved to database successfully!");
+        alert("Class saved to database successfully!");
         const newId = res?.data?.course?.id;
         if (newId) {
-          navigate(`/admin/courses/${newId}`);
+          navigate(`/admin/classes/${newId}`);
         } else {
-          navigate("/courses");
+          navigate("/classes");
         }
       } catch (error) {
         const detail = error.response?.data?.error;

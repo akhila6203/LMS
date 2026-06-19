@@ -7,6 +7,8 @@ const {
   getLearnerDashboard,
 } = require("../controllers/learnerController");
 
+router.get("/classes", verifyToken, getLearnerCourses);
+router.get("/classes/:id", verifyToken, getLearnerCourseById);
 router.get("/courses", verifyToken, getLearnerCourses);
 router.get("/courses/:id", verifyToken, getLearnerCourseById);
 router.get("/dashboard", verifyUser, getLearnerDashboard);

@@ -2,41 +2,28 @@ require("dotenv").config();
 
 const mysql = require("mysql2");
 
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "lms_project",
+  waitForConnections: true,
+  connectionLimit: 10,
+  connectTimeout: 10000,
+  enableKeepAlive: true,
 });
 
-db.connect((err) => {
+pool.getConnection((err, connection) => {
   if (err) {
-    console.log("Database Error", err);
-  } else {
-    console.log("MySQL Connected");
+    console.error("Database connection failed:", err.code || "ERROR", err.message);
+    console.error(
+      "Check that MySQL is running and backend/.env DB_HOST, DB_USER, DB_PASSWORD, DB_NAME are correct."
+    );
+    return;
   }
+
+  console.log("MySQL Connected");
+  connection.release();
 });
 
-module.exports = db;
-
-
-
-
-// const mysql = require("mysql2");
-
-// const db = mysql.createConnection({
-//   host: "localhost",
-//   user: "root",
-//   password: "root",
-//   database: "lms_project"
-// });
-
-// db.connect((err) => {
-//   if (err) {
-//     console.log("Database Error", err);
-//   } else {
-//     console.log("MySQL Connected");
-//   }
-// });
-
-// module.exports = db;
+module.exports = pool;

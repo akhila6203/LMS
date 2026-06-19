@@ -153,7 +153,7 @@ export default function AdminCourses() {
 
         <button
           type="button"
-          onClick={() => navigate("/courses/create")}
+          onClick={() => navigate("/classes/create")}
           className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-white shadow hover:bg-blue-700"
         >
           <FaPlus />
@@ -170,7 +170,7 @@ export default function AdminCourses() {
           {filtered.map((course) => (
             <div
               key={course.id}
-              onClick={() => navigate(`/admin/courses/${course.id}`)}
+              onClick={() => navigate(`/admin/classes/${course.id}`)}
               className="cursor-pointer overflow-hidden rounded-xl bg-card shadow transition hover:shadow-lg"
             >
               <div className="relative h-44 overflow-hidden">
@@ -215,7 +215,7 @@ export default function AdminCourses() {
                 </p>
 
                 <p className="mb-3 text-sm text-muted-foreground">
-                  By {course.instructor}
+                  By {course.mentor || course.instructor || "Mentor"}
                 </p>
 
                 <div className="flex items-center gap-5 text-sm text-muted-foreground">

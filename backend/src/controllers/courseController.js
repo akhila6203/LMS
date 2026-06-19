@@ -1,4 +1,5 @@
 const { query } = require("../utils/dbQuery");
+const { ensureSubjectName } = require("./subjectController");
 const {
   STUDENT_COUNT_SQL,
   resolveClassLevel,
@@ -169,6 +170,7 @@ exports.getPublicCourses = async (req, res) => {
         (SELECT COUNT(*) FROM course_videos v WHERE v.course_id = c.id) AS video_count
        FROM courses c
        WHERE c.status = 'Active'
+         AND EXISTS (SELECT 1 FROM course_videos v WHERE v.course_id = c.id)
        ORDER BY c.id DESC`
     );
 
@@ -233,6 +235,7 @@ exports.createCourse = async (req, res) => {
   const {
     title,
     instructor,
+    mentor,
     description,
     status,
     thumbnail,
@@ -245,7 +248,7 @@ exports.createCourse = async (req, res) => {
   } = req.body;
 
   if (!title?.trim()) {
-    return res.status(400).json({ message: "Course title is required" });
+    return res.status(400).json({ message: "Session title is required" });
   }
 
   const classLevel = resolveClassLevel(req.body);
@@ -269,7 +272,7 @@ exports.createCourse = async (req, res) => {
         title.trim(),
         classLevel,
         subject,
-        instructor || "",
+        mentor || instructor || "",
         description || "",
         status || "Draft",
         thumbnail || null,
@@ -279,6 +282,8 @@ exports.createCourse = async (req, res) => {
     );
 
     const courseId = courseResult.insertId;
+
+    await ensureSubjectName(subject, classLevel);
 
     for (let i = 0; i < videos.length; i++) {
       const v = videos[i];
@@ -400,6 +405,7 @@ exports.updateCourse = async (req, res) => {
   const {
     title,
     instructor,
+    mentor,
     description,
     status,
     thumbnail,
@@ -412,7 +418,7 @@ exports.updateCourse = async (req, res) => {
   } = req.body;
 
   if (!title?.trim()) {
-    return res.status(400).json({ message: "Course title is required" });
+    return res.status(400).json({ message: "Session title is required" });
   }
 
   const classLevel = resolveClassLevel(req.body);
@@ -443,7 +449,7 @@ exports.updateCourse = async (req, res) => {
         title.trim(),
         classLevel,
         subject,
-        instructor || "",
+        mentor || instructor || "",
         description || "",
         status || "Draft",
         thumbnail || null,
@@ -451,6 +457,8 @@ exports.updateCourse = async (req, res) => {
         id,
       ]
     );
+
+    await ensureSubjectName(subject, classLevel);
 
     // Replace child rows (simple & reliable for LMS admin UI)
     await query("DELETE FROM course_videos WHERE course_id = ?", [id]);

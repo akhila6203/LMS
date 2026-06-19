@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
-import { GoogleLogin } from "@react-oauth/google";
 import { FcGoogle } from "react-icons/fc";
 import { Sparkles, Shield } from "lucide-react";
-import login from "../assets/photos/login.jpg";
 import { authService } from "@/services/authService";
-import { setSessionUser, getSessionUser, setAuthToken } from "@/utils/authSession";
+import { useAuth } from "@/contexts/AuthContext";
 import { isPublicOnlyPath } from "@/utils/publicRoutes";
+import LearnerGoogleLogin from "@/components/LearnerGoogleLogin";
 
 const passwordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -122,7 +121,11 @@ function AdminLoginFormFields({
   );
 }
 
-function UserGoogleSignIn({ onSuccess, loading, googleWrapRef, inviteEmail }) {
+function UserGoogleSignIn({ onSuccess, onGoogleError, loading, inviteEmail }) {
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  const appOrigin =
+    typeof window !== "undefined" ? window.location.origin : "http://localhost:8080";
+
   return (
     <div className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/80 p-6 shadow-xl shadow-indigo-100/50 backdrop-blur-sm sm:p-8">
       <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-violet-200/40 blur-2xl" />
@@ -158,18 +161,30 @@ function UserGoogleSignIn({ onSuccess, loading, googleWrapRef, inviteEmail }) {
           Continue with Google using: {inviteEmail}
         </p>
       )}
-      <div ref={googleWrapRef} className="google-login-full relative mt-6 w-full">
-        <GoogleLogin
-          onSuccess={onSuccess}
-          onError={() => alert("Google sign-in failed. Try again.")}
-          text="continue_with"
-          shape="pill"
-          size="large"
-          // width="100%"
-          width="400"
-          theme="outline"
-        />
-      </div>
+
+      {!googleClientId ? (
+        <div className="relative mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Google sign-in is not configured. Set{" "}
+          <code className="rounded bg-white px-1">VITE_GOOGLE_CLIENT_ID</code> in{" "}
+          <code className="rounded bg-white px-1">.env</code> (must match backend{" "}
+          <code className="rounded bg-white px-1">GOOGLE_CLIENT_ID</code>).
+        </div>
+      ) : (
+        <>
+          <div className="relative mt-6">
+            <LearnerGoogleLogin
+              onSuccess={onSuccess}
+              onError={onGoogleError}
+              disabled={loading}
+            />
+          </div>
+          <p className="relative mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            If Google sign-in fails, add this exact origin in Google Cloud Console →
+            Credentials → OAuth client → Authorized JavaScript origins:{" "}
+            <code className="font-semibold text-slate-700">{appOrigin}</code>
+          </p>
+        </>
+      )}
 
       <p className="relative mt-4 flex items-center justify-center gap-2 text-center text-xs text-slate-400">
         <FcGoogle className="h-4 w-4" />
@@ -195,6 +210,7 @@ function UserGoogleSignIn({ onSuccess, loading, googleWrapRef, inviteEmail }) {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [searchParams] = useSearchParams();
   const [loginType, setLoginType] = useState(
     searchParams.get("type") === "admin" ? "admin" : "user"
@@ -203,7 +219,6 @@ export default function Login() {
   const [adminShow, setAdminShow] = useState(false);
   const [adminErrors, setAdminErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const googleWrapRef = useRef(null);
 
   const inviteToken = searchParams.get("invite");
   const inviteEmail = searchParams.get("email");
@@ -213,12 +228,6 @@ export default function Login() {
   useEffect(() => {
     setLoginType(searchParams.get("type") === "admin" ? "admin" : "user");
   }, [searchParams]);
-
-  useEffect(() => {
-    const session = getSessionUser();
-    if (!session?.id) return;
-    navigate("/dashboard", { replace: true });
-  }, [navigate]);
 
   const validateAdmin = () => {
     const newErrors = {};
@@ -267,9 +276,9 @@ export default function Login() {
         email: adminForm.email,
         password: adminForm.password,
       });
-      setAuthToken(res.data.token);
-      setSessionUser(res.data.user);
-      redirectAfterAuth(res.data.user);
+      const user = res.data.user;
+      login(user);
+      redirectAfterAuth(user);
     } catch (error) {
       alert(error.response?.data?.message || "Login Failed");
     } finally {
@@ -277,18 +286,34 @@ export default function Login() {
     }
   };
 
+  const handleGoogleError = () => {
+    const origin = window.location.origin;
+    alert(
+      `Google sign-in blocked. In Google Cloud Console, add "${origin}" under Authorized JavaScript origins for your OAuth client ID.`
+    );
+  };
+
   const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      handleGoogleError();
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await authService.googleLogin({
         token: credentialResponse.credential,
         inviteToken,
       });
-      setAuthToken(res.data.token);
-      setSessionUser(res.data.user);
-      redirectAfterAuth(res.data.user);
+      const user = res.data.user;
+      if (!user?.id) {
+        throw new Error("Login response missing user");
+      }
+      login(user);
+      redirectAfterAuth(user);
     } catch (error) {
-      alert(error.response?.data?.message || "Google login failed");
+      alert(error.response?.data?.message || error.message || "Google login failed");
+    } finally {
       setLoading(false);
     }
   };
@@ -304,8 +329,7 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 lg:flex-row">
-      <div className="relative hidden overflow-hidden lg:block lg:w-1/2">
-        <img src={login} alt="" className="h-full w-full object-cover" />
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-violet-700 via-indigo-600 to-cyan-500 lg:block lg:w-1/2">
         <div className="absolute inset-0 bg-gradient-to-br from-violet-700/70 via-indigo-600/55 to-cyan-500/45" />
         <div className="absolute left-1/2 top-[56%] z-20 max-w-md -translate-x-1/2 -translate-y-1/2 px-6 text-center text-white">
           <h1 className="text-2xl font-bold leading-snug drop-shadow-xl xl:text-4xl">
@@ -348,8 +372,8 @@ export default function Login() {
           {!isAdmin ? (
             <UserGoogleSignIn
               onSuccess={handleGoogleSuccess}
+              onGoogleError={handleGoogleError}
               loading={loading}
-              googleWrapRef={googleWrapRef}
               inviteEmail={inviteEmail}
             />
           ) : (

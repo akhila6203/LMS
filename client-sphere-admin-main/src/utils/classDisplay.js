@@ -22,11 +22,18 @@ export function formatClassDisplay(classLevel = "") {
   return val;
 }
 
-/** Subject tabs from published courses for the learner's class (admin add order) */
+/** Subject tabs from published courses for the learner's class (must have lessons) */
 export function buildSubjectTabs(courses = []) {
   const seen = new Set();
   const subjects = [];
   for (const c of courses) {
+    const lessonCount =
+      Number(c.lessonCount) ||
+      Number(c.lessons) ||
+      Number(c.topics) ||
+      Number(c.topicCount) ||
+      0;
+    if (lessonCount <= 0) continue;
     const s = (c.subCategory || c.subject || "").trim();
     if (s && !seen.has(s)) {
       seen.add(s);

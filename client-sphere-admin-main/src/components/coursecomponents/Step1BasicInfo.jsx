@@ -1,81 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
-import { CLASS_OPTIONS, getSubjectsForClass } from "@/lib/catalog";
-
-const OTHERS = "__others__";
-
-function SelectWithOther({
-  label,
-  value,
-  onValueChange,
-  options = [],
-  disabled = false,
-  emptyLabel = "Select",
-  otherPlaceholder = "Enter your own",
-}) {
-  const valueIsCustom = Boolean(value) && !options.includes(value);
-  const [othersMode, setOthersMode] = useState(valueIsCustom);
-
-  useEffect(() => {
-    if (value && !options.includes(value)) {
-      setOthersMode(true);
-    } else if (value && options.includes(value)) {
-      setOthersMode(false);
-    }
-  }, [value, options]);
-
-  const selectValue = othersMode ? OTHERS : value || "";
-
-  const handleSelect = (e) => {
-    const picked = e.target.value;
-    if (picked === OTHERS) {
-      setOthersMode(true);
-      if (!valueIsCustom) onValueChange("");
-      return;
-    }
-    if (picked === "") {
-      setOthersMode(false);
-      onValueChange("");
-      return;
-    }
-    setOthersMode(false);
-    onValueChange(picked);
-  };
-
-  return (
-    <div>
-      <label className="block text-sm font-medium mb-1">{label}</label>
-      <select
-        value={selectValue}
-        onChange={handleSelect}
-        disabled={disabled}
-        className="w-full border rounded-lg px-4 py-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
-      >
-        <option value="">{emptyLabel}</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-        <option value={OTHERS}>Others</option>
-      </select>
-      {othersMode && (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onValueChange(e.target.value)}
-          placeholder={otherPlaceholder}
-          className="w-full border rounded-lg px-4 py-2 mt-2 focus:ring-2 focus:ring-blue-500 outline-none"
-        />
-      )}
-    </div>
-  );
-}
+import { useState, useEffect } from "react";
+import { CLASS_OPTIONS } from "@/lib/catalog";
+import SubjectSelect from "@/components/admin/SubjectSelect";
+import SelectWithOther from "@/components/admin/SelectWithOther";
 
 export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
   const [form, setForm] = useState({
     title: "",
     classLevel: "",
     subject: "",
+    mentor: "",
     instructor: "",
     description: "",
     thumbnail: null,
@@ -89,7 +22,8 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
         title: data.title || "",
         classLevel: data.classLevel || data.category || "",
         subject: data.subject || data.subCategory || data.sub_category || "",
-        instructor: data.instructor || "",
+        mentor: data.mentor || data.instructor || "",
+        instructor: data.instructor || data.mentor || "",
         description: data.description || "",
         thumbnail: data.thumbnail || null,
       });
@@ -99,23 +33,16 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
 
   const patch = (fields) => setForm((prev) => ({ ...prev, ...fields }));
 
-  const subjectOptions = useMemo(
-    () => getSubjectsForClass(form.classLevel),
-    [form.classLevel]
-  );
-
   const handleClassChange = (classLevel) => {
-    const nextSubjects = getSubjectsForClass(classLevel);
-    const keepSubject = nextSubjects.includes(form.subject);
     patch({
       classLevel,
-      subject: keepSubject ? form.subject : "",
+      subject: form.classLevel === classLevel ? form.subject : "",
     });
   };
 
   const handleSubmit = () => {
     if (!form.title.trim()) {
-      alert("Course title is required");
+      alert("Session title is required");
       return;
     }
     if (!form.classLevel.trim()) {
@@ -144,7 +71,7 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
     <div className="max-w-6xl mx-auto">
       {!isModal && (
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold">Create a new course</h1>
+          <h1 className="text-2xl font-semibold">Create a new class</h1>
           <p className="text-gray-500 text-sm">
             Enter class details shown to students in your LMS.
           </p>
@@ -154,7 +81,7 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
       <div className={`space-y-6 ${isModal ? "" : "bg-white rounded-2xl shadow p-6"}`}>
         {!isModal && (
           <div>
-            <h2 className="font-semibold text-lg">Course details</h2>
+            <h2 className="font-semibold text-lg">Class details</h2>
             <p className="text-sm text-gray-500">
               Class, subject, and basic information.
             </p>
@@ -162,7 +89,7 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
         )}
 
         <div>
-          <label className="block text-sm font-medium mb-1">Course title</label>
+          <label className="block text-sm font-medium mb-1">Session title</label>
           <input
             value={form.title}
             onChange={(e) => patch({ title: e.target.value })}
@@ -182,10 +109,10 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Instructor</label>
+          <label className="block text-sm font-medium mb-1">Mentor Name</label>
           <input
-            value={form.instructor}
-            onChange={(e) => patch({ instructor: e.target.value })}
+            value={form.mentor}
+            onChange={(e) => patch({ mentor: e.target.value, instructor: e.target.value })}
             placeholder="Full name"
             className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
           />
@@ -195,20 +122,17 @@ export default function Step1({ onNext, data = {}, setStep, isModal = false }) {
           <SelectWithOther
             label="Class"
             value={form.classLevel}
-            onValueChange={handleClassChange}
+            onChange={handleClassChange}
             options={CLASS_OPTIONS}
             emptyLabel="Select class"
             otherPlaceholder="Enter class / grade"
           />
 
-          <SelectWithOther
+          <SubjectSelect
             label="Subject"
             value={form.subject}
-            onValueChange={(subject) => patch({ subject })}
-            options={subjectOptions}
-            disabled={!form.classLevel.trim()}
-            emptyLabel={form.classLevel ? "Select subject" : "Select class first"}
-            otherPlaceholder="Enter subject name"
+            onChange={(subject) => patch({ subject })}
+            classLevel={form.classLevel}
           />
         </div>
 

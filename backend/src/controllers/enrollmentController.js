@@ -7,6 +7,62 @@ const {
   getUserClassLevel,
 } = require("../utils/progressHelpers");
 
+async function fetchQuizScoresByEnrollmentIds(enrollmentIds) {
+  if (!enrollmentIds.length) return new Map();
+
+  const placeholders = enrollmentIds.map(() => "?").join(",");
+  const rows = await query(
+    `SELECT enrollment_id, quiz_id, quiz_title, score, total, completed_at
+     FROM course_quiz_scores
+     WHERE enrollment_id IN (${placeholders})
+     ORDER BY completed_at ASC, quiz_id ASC`,
+    enrollmentIds
+  );
+
+  const map = new Map();
+  for (const row of rows) {
+    if (!map.has(row.enrollment_id)) map.set(row.enrollment_id, []);
+    map.get(row.enrollment_id).push({
+      quizId: row.quiz_id,
+      quizTitle: row.quiz_title,
+      score: row.score,
+      total: row.total,
+      completedAt: row.completed_at,
+    });
+  }
+  return map;
+}
+
+async function syncEnrollmentQuizAggregate(enrollmentId) {
+  const rows = await query(
+    `SELECT COALESCE(SUM(score), 0) AS score_sum,
+            COALESCE(SUM(total), 0) AS total_sum,
+            MAX(completed_at) AS latest_completed_at
+     FROM course_quiz_scores
+     WHERE enrollment_id = ?`,
+    [enrollmentId]
+  );
+
+  const scoreSum = Number(rows[0]?.score_sum) || 0;
+  const totalSum = Number(rows[0]?.total_sum) || 0;
+  const latestCompletedAt = rows[0]?.latest_completed_at || null;
+
+  await query(
+    `UPDATE course_enrollments
+     SET quiz_score = ?, quiz_total = ?,
+         quiz_completed_at = COALESCE(?, quiz_completed_at)
+     WHERE id = ?`,
+    [
+      totalSum > 0 ? scoreSum : null,
+      totalSum > 0 ? totalSum : null,
+      latestCompletedAt,
+      enrollmentId,
+    ]
+  );
+
+  return { scoreSum, totalSum, latestCompletedAt };
+}
+
 exports.getMyCourses = async (req, res) => {
   try {
     const classLevel = await getUserClassLevel(req.user.id);
@@ -34,6 +90,8 @@ exports.getMyCourses = async (req, res) => {
     const enrollmentByCourse = new Map(
       enrollments.map((e) => [e.course_id, e])
     );
+    const enrollmentIds = enrollments.map((e) => e.id);
+    const quizScoresByEnrollment = await fetchQuizScoresByEnrollmentIds(enrollmentIds);
 
     const courses = [];
     let completedCount = 0;
@@ -84,6 +142,10 @@ exports.getMyCourses = async (req, res) => {
 
       totalHours += progress.completedUnits * 0.5;
 
+      const quizScores = enrollment
+        ? quizScoresByEnrollment.get(enrollment.id) || []
+        : [];
+
       courses.push({
         enrollmentId: enrollment?.id || null,
         courseId: row.id,
@@ -105,6 +167,7 @@ exports.getMyCourses = async (req, res) => {
         quizCompletedAt: enrollment?.quiz_completed_at || null,
         quizScore: enrollment?.quiz_score ?? null,
         quizTotal: enrollment?.quiz_total ?? null,
+        quizScores,
       });
     }
 
@@ -189,6 +252,7 @@ exports.completeQuiz = async (req, res) => {
     const { courseId } = req.params;
     const scoreRaw = req.body?.score;
     const totalRaw = req.body?.total;
+    const quizIdRaw = req.body?.quizId;
 
     const score =
       scoreRaw !== undefined && scoreRaw !== null && scoreRaw !== ""
@@ -197,6 +261,10 @@ exports.completeQuiz = async (req, res) => {
     const total =
       totalRaw !== undefined && totalRaw !== null && totalRaw !== ""
         ? Math.max(0, parseInt(totalRaw, 10))
+        : null;
+    const quizId =
+      quizIdRaw !== undefined && quizIdRaw !== null && quizIdRaw !== ""
+        ? parseInt(quizIdRaw, 10)
         : null;
 
     if (
@@ -231,24 +299,87 @@ exports.completeQuiz = async (req, res) => {
       });
     }
 
-    await query(
-      `INSERT INTO course_lesson_progress (enrollment_id, lesson_key, lesson_type)
-       VALUES (?, 'quiz:all', 'quiz')
-       ON DUPLICATE KEY UPDATE completed_at = NOW()`,
-      [enrollmentId]
+    const quizRows = await query(
+      "SELECT id, quiz_title FROM course_quizzes WHERE course_id = ? ORDER BY id",
+      [courseId]
     );
 
+    let targetQuiz = null;
+    if (quizId && !Number.isNaN(quizId)) {
+      targetQuiz = quizRows.find((q) => q.id === quizId) || null;
+    }
+    if (!targetQuiz && quizRows.length === 1) {
+      targetQuiz = quizRows[0];
+    }
+    if (!targetQuiz && quizRows.length > 0) {
+      return res.status(400).json({ message: "quizId is required for this course" });
+    }
+
+    const lessonKey = targetQuiz ? `quiz:${targetQuiz.id}` : "quiz:all";
+
     await query(
-      `UPDATE course_enrollments
-       SET quiz_completed_at = NOW(), completed_at = NOW(), status = 'completed',
-           quiz_score = ?, quiz_total = ?
-       WHERE id = ?`,
-      [score, total, enrollmentId]
+      `INSERT INTO course_lesson_progress (enrollment_id, lesson_key, lesson_type)
+       VALUES (?, ?, 'quiz')
+       ON DUPLICATE KEY UPDATE completed_at = NOW()`,
+      [enrollmentId, lessonKey]
     );
+
+    if (targetQuiz) {
+      await query(
+        `INSERT INTO course_quiz_scores
+          (enrollment_id, quiz_id, quiz_title, score, total, completed_at)
+         VALUES (?, ?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE
+           quiz_title = VALUES(quiz_title),
+           score = VALUES(score),
+           total = VALUES(total),
+           completed_at = NOW()`,
+        [enrollmentId, targetQuiz.id, targetQuiz.quiz_title || "Quiz", score, total]
+      );
+      await syncEnrollmentQuizAggregate(enrollmentId);
+    } else {
+      await query(
+        `UPDATE course_enrollments
+         SET quiz_completed_at = NOW(), quiz_score = ?, quiz_total = ?
+         WHERE id = ?`,
+        [score, total, enrollmentId]
+      );
+    }
+
+    const updatedProgress = await getProgressForEnrollment(enrollmentId, courseId);
+    const allQuizzesDone = updatedProgress.quizDone;
+
+    if (allQuizzesDone) {
+      await query(
+        `UPDATE course_enrollments
+         SET quiz_completed_at = NOW(), completed_at = NOW(), status = 'completed'
+         WHERE id = ?`,
+        [enrollmentId]
+      );
+    } else {
+      await query(
+        `UPDATE course_enrollments
+         SET status = 'active', completed_at = NULL
+         WHERE id = ? AND status = 'completed'`,
+        [enrollmentId]
+      );
+    }
 
     await syncStudentProfileProgress(req.user.id);
 
-    res.json({ message: "Quiz completed", status: "completed", score, total });
+    const quizScores = (await fetchQuizScoresByEnrollmentIds([enrollmentId])).get(
+      enrollmentId
+    ) || [];
+
+    res.json({
+      message: "Quiz completed",
+      status: allQuizzesDone ? "completed" : "active",
+      score,
+      total,
+      quizId: targetQuiz?.id || null,
+      quizScores,
+      progress: updatedProgress,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to complete quiz" });

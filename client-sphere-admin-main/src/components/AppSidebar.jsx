@@ -12,13 +12,15 @@ import {
   Images,
   Folder,
   Video,
+  GraduationCap,
 } from "lucide-react";
 
 import logo2 from "../assets/photos/logo2.png";
 
 const adminMenu = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { name: "Classes", path: "/courses", icon: BookOpen },
+  { name: "Classes", path: "/classes", icon: BookOpen },
+  // { name: "Subjects", path: "/subjects", icon: GraduationCap },
   { name: "Students", path: "/students", icon: Users },
   { name: "Materials", path: "/materials", icon: Folder },
   { name: "Banners", path: "/admin/banners", icon: Images },
@@ -29,7 +31,7 @@ const adminMenu = [
 const userMenu = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { name: "My Learning", path: "/settings?tab=learning", icon: BookOpen },
-  { name: "Classes", path: "/courses", icon: BookOpen },
+  { name: "Classes", path: "/classes", icon: BookOpen },
   { name: "My Materials", path: "/materials", icon: Folder },
   { name: "Settings", path: "/settings", icon: Settings },
 ];

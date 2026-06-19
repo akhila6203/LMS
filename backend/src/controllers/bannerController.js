@@ -55,3 +55,28 @@ exports.deleteBanner = async (req, res) => {
     res.status(500).json({ message: "Failed to delete banner" });
   }
 };
+
+exports.updateBanner = async (req, res) => {
+  const id = req.params.id;
+  const status = req.body.status;
+
+  try {
+    if (req.file) {
+      const imageUrl = fileUrl(req, req.file.filename);
+      await query(`UPDATE banners SET image_url = ? WHERE id = ?`, [imageUrl, id]);
+    }
+
+    if (status) {
+      await query(`UPDATE banners SET status = ? WHERE id = ?`, [status, id]);
+    }
+
+    const rows = await query(`SELECT * FROM banners WHERE id = ?`, [id]);
+    if (!rows.length) {
+      return res.status(404).json({ message: "Banner not found" });
+    }
+
+    res.json({ message: "Banner updated", banner: rows[0] });
+  } catch {
+    res.status(500).json({ message: "Failed to update banner" });
+  }
+};

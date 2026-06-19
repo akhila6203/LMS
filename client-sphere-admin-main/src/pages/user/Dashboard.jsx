@@ -4,6 +4,7 @@ import { CourseGridWithMore } from "@/components/CourseGridWithMore";
 import { PageWithFooter } from "@/components/layout/PageWithFooter";
 import { usePublishedCourses } from "@/hooks/usePublishedCourses";
 import { filterCoursesByStudentClass } from "@/utils/classFilter";
+import { filterCoursesWithLessons } from "@/utils/courseFilters";
 import { getSessionUser } from "@/utils/authSession";
 import { formatClassDisplay } from "@/utils/classDisplay";
 import { mapPublicCourseForCard } from "@/utils/mapPublicCourse";
@@ -14,9 +15,9 @@ function StudentDashboard() {
 
   const classCourses = useMemo(
     () =>
-      filterCoursesByStudentClass(courses, sessionUser).map((c) =>
-        mapPublicCourseForCard(c)
-      ),
+      filterCoursesWithLessons(
+        filterCoursesByStudentClass(courses, sessionUser)
+      ).map((c) => mapPublicCourseForCard(c)),
     [courses, sessionUser]
   );
 

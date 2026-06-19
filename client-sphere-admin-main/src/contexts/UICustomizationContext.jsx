@@ -93,43 +93,31 @@ function applyNavColor(preset) {
 }
 
 export function UICustomizationProvider({ children }) {
-  const [colorPreset, setColorPresetState] = useState(
-    () => localStorage.getItem("ui-color") || "default-blue"
-  );
-  const [fontPreset, setFontPresetState] = useState(
-    () => localStorage.getItem("ui-font") || "jakarta-inter"
-  );
-  const [borderRadius, setBorderRadiusState] = useState(
-    () => localStorage.getItem("ui-radius") || "md"
-  );
-  const [navColorPreset, setNavColorPresetState] = useState(
-    () => localStorage.getItem("ui-nav-color") || "dark-navy"
-  );
+  const [colorPreset, setColorPresetState] = useState("default-blue");
+  const [fontPreset, setFontPresetState] = useState("jakarta-inter");
+  const [borderRadius, setBorderRadiusState] = useState("md");
+  const [navColorPreset, setNavColorPresetState] = useState("dark-navy");
 
   const setColorPreset = (id) => {
     setColorPresetState(id);
-    localStorage.setItem("ui-color", id);
     const p = colorPresets.find((c) => c.id === id);
     if (p) applyColor(p);
   };
 
   const setFontPreset = (id) => {
     setFontPresetState(id);
-    localStorage.setItem("ui-font", id);
     const p = fontPresets.find((f) => f.id === id);
     if (p) applyFont(p);
   };
 
   const setBorderRadius = (id) => {
     setBorderRadiusState(id);
-    localStorage.setItem("ui-radius", id);
     const p = borderRadiusPresets.find((r) => r.id === id);
     if (p) applyRadius(p);
   };
 
   const setNavColorPreset = (id) => {
     setNavColorPresetState(id);
-    localStorage.setItem("ui-nav-color", id);
     const p = navColorPresets.find((n) => n.id === id);
     if (p) applyNavColor(p);
   };

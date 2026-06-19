@@ -91,7 +91,7 @@ export default function Step5({ data = {}, onNext, setStep }) {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold">Course Preview</h1>
+        <h1 className="text-2xl font-semibold">Class Preview</h1>
         <p className="text-gray-500 text-sm">
           Review all details before publishing your course.
         </p>
@@ -136,7 +136,7 @@ export default function Step5({ data = {}, onNext, setStep }) {
                 <b>Subject:</b> {data.subject || data.subCategory || "—"}
               </p>
               <p>
-                <b>Instructor:</b> {data.instructor || "—"}
+                <b>Mentor Name:</b> {data.mentor || data.instructor || "—"}
               </p>
             </div>
           </div>
