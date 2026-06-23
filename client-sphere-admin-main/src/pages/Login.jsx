@@ -7,6 +7,7 @@ import { authService } from "@/services/authService";
 import { useAuth } from "@/contexts/AuthContext";
 import { isPublicOnlyPath } from "@/utils/publicRoutes";
 import LearnerGoogleLogin from "@/components/LearnerGoogleLogin";
+import loginbg from "@/assets/photos/login.jpg";
 
 const passwordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
@@ -178,11 +179,20 @@ function UserGoogleSignIn({ onSuccess, onGoogleError, loading, inviteEmail }) {
               disabled={loading}
             />
           </div>
-          <p className="relative mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-            If Google sign-in fails, add this exact origin in Google Cloud Console →
+          {/* <p className="relative mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            If Google sign-in fails, add these origins in Google Cloud Console →
             Credentials → OAuth client → Authorized JavaScript origins:{" "}
             <code className="font-semibold text-slate-700">{appOrigin}</code>
-          </p>
+            {appOrigin.includes("localhost") && (
+              <>
+                {" "}
+                and{" "}
+                <code className="font-semibold text-slate-700">
+                  {appOrigin.replace("localhost", "127.0.0.1")}
+                </code>
+              </>
+            )}
+          </p> */}
         </>
       )}
 
@@ -288,8 +298,11 @@ export default function Login() {
 
   const handleGoogleError = () => {
     const origin = window.location.origin;
+    const altOrigin = origin.includes("localhost")
+      ? origin.replace("localhost", "127.0.0.1")
+      : null;
     alert(
-      `Google sign-in blocked. In Google Cloud Console, add "${origin}" under Authorized JavaScript origins for your OAuth client ID.`
+      `Google sign-in blocked. In Google Cloud Console → Credentials → OAuth client, add under Authorized JavaScript origins:\n${origin}${altOrigin ? `\n${altOrigin}` : ""}\n\nAlso ensure VITE_GOOGLE_CLIENT_ID (frontend .env) matches GOOGLE_CLIENT_ID (backend .env).`
     );
   };
 
@@ -329,7 +342,18 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 lg:flex-row">
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-violet-700 via-indigo-600 to-cyan-500 lg:block lg:w-1/2">
+
+      
+      {/* <div className="relative hidden overflow-hidden bg-gradient-to-br from-violet-700 via-indigo-600 to-cyan-500 lg:block lg:w-1/2"> */}
+  
+          <div className="relative hidden lg:flex lg:w-1/2">
+  <img
+    src={loginbg}
+    alt="Login"
+    className="absolute inset-0 w-full h-full object-cover"
+  />
+
+
         <div className="absolute inset-0 bg-gradient-to-br from-violet-700/70 via-indigo-600/55 to-cyan-500/45" />
         <div className="absolute left-1/2 top-[56%] z-20 max-w-md -translate-x-1/2 -translate-y-1/2 px-6 text-center text-white">
           <h1 className="text-2xl font-bold leading-snug drop-shadow-xl xl:text-4xl">

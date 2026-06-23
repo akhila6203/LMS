@@ -117,26 +117,19 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
-// i am chnaging for google authentication
 const LoginRoute = () => {
   const { user } = useAuth();
   if (user) return <Navigate to="/dashboard" replace />;
 
-  return <Login />;
+  const loginPage = <Login />;
+  if (!GOOGLE_CLIENT_ID) return loginPage;
+
+  return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      {loginPage}
+    </GoogleOAuthProvider>
+  );
 };
-// const LoginRoute = () => {
-//   const { user } = useAuth();
-//   if (user) return <Navigate to="/dashboard" replace />;
-
-//   const loginPage = <Login />;
-//   if (!GOOGLE_CLIENT_ID) return loginPage;
-
-//   return (
-//     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID} useOneTap={false}>
-//       {loginPage}
-//     </GoogleOAuthProvider>
-//   );
-// };
 
 const AppRoutes = () => {
   const { loading } = useAuth();
@@ -295,27 +288,10 @@ const App = () => {
               }}
             >
               <AuthProvider>
-  {GOOGLE_CLIENT_ID ? (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <Toaster />
-      <Sonner />
-      <AppRoutes />
-    </GoogleOAuthProvider>
-  ) : (
-    <>
-      <Toaster />
-      <Sonner />
-      <AppRoutes />
-    </>
-  )}
-</AuthProvider>
-              {/* <AuthProvider>
-                <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-                  <Toaster />
-                  <Sonner />
-                  <AppRoutes />
-                </GoogleOAuthProvider>
-              </AuthProvider> */}
+                <Toaster />
+                <Sonner />
+                <AppRoutes />
+              </AuthProvider>
             </BrowserRouter>
           </TooltipProvider>
         </UICustomizationProvider>

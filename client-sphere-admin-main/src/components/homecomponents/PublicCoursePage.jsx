@@ -204,10 +204,10 @@ export default function PublicCoursePage() {
             <p className="text-gray-500 mt-2 text-sm">{course.description}</p>
 
             <div className="flex flex-wrap gap-3 mt-3 text-xs sm:text-sm text-gray-600">
-              <span className="flex items-center gap-1">
+              {/* <span className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                 {course.rating} ({course.reviews})
-              </span>
+              </span> */}
               <span className="flex gap-1 items-center">
                 <Clock className="h-4 w-4" />
                 {course.hours}h

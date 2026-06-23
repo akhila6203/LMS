@@ -105,7 +105,7 @@ export default function CourseViewPage() {
   if (!course) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-xl font-semibold">Course not found</h2>
+        <h2 className="text-xl font-semibold">class not found</h2>
         <Button onClick={() => navigate("/classes")} className="mt-4">
           Back to classes
         </Button>
@@ -233,10 +233,10 @@ export default function CourseViewPage() {
   {/* STATS */}
   <div className="mt-3 flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
     
-    <span className="flex items-center gap-1">
+    {/* <span className="flex items-center gap-1">
       <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
       {course.rating} ({(course.reviews || 0).toLocaleString()})
-    </span>
+    </span> */}
 
     <span className="flex items-center gap-1">
       <Clock className="h-4 w-4" />
@@ -424,7 +424,7 @@ export default function CourseViewPage() {
               ))}
             </Card>
 
-            <Card className="p-6 shadow-sm border border-border">
+            {/* <Card className="p-6 shadow-sm border border-border">
   <div className="flex items-center gap-3">
     <Award className="w-6 h-6 text-purple-600" />
     <div>
@@ -434,7 +434,7 @@ export default function CourseViewPage() {
       </p>
     </div>
   </div>
-</Card>
+</Card> */}
 
         </aside>
 

@@ -52,9 +52,9 @@ function AppCoursesPage() {
   }
 
   const emptyMsg = loading
-    ? "Loading courses…"
+    ? "Loading classes…"
     : error
-      ? "Could not load courses."
+      ? "Could not load classes."
       : `No lessons found for ${activeSubject}.`;
 
   const classLabel = formatClassDisplay(sessionUser?.classLevel);

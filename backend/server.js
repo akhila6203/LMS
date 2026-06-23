@@ -106,6 +106,11 @@ async function waitForDatabase(retries = 5, delayMs = 2000) {
 
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    console.warn(
+      "GOOGLE_CLIENT_ID is not set — learner Google sign-in will fail until backend .env matches frontend VITE_GOOGLE_CLIENT_ID."
+    );
+  }
   try {
     await waitForDatabase();
     await ensureSchema();
