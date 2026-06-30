@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import logo from "../assets/photos/logo.png";
+import logo from "../assets/photos/lmslogo2.png";
 
 export function TopHeader() {
   const { isDark, toggle } = useTheme();
@@ -86,7 +86,8 @@ if (path.startsWith("/admin/classes/")) {
               <img
                 src={logo}
                 alt="LMS"
-                className="h-8 sm:h-10 md:h-12 w-auto object-contain"
+                className="w-40 h-14 object-contain"
+                // className="h-8 sm:h-10 md:h-12 w-auto object-contain"
               />
             </button>
             // <button

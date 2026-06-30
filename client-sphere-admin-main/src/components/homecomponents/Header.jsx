@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
 
-import logo from "../../assets/photos/logo.png";
+import logo from "../../assets/photos/lmslogo2.png";
 import PronunciationSearch from "@/components/PronunciationSearch";
 
 function SlidePanel({ open, onClose, title, children }) {
@@ -88,7 +88,8 @@ export default function Header() {
             <img
               src={logo}
               alt="LMS"
-              className="h-10 sm:h-10 md:h-12 w-auto object-contain"
+              className="w-20 h-16 object-contain"
+              // className="h-16 sm:h-20 md:h-12 w-auto object-contain"
             />
           </div>
 
